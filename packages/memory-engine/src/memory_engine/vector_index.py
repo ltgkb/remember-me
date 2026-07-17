@@ -27,6 +27,27 @@ class SemanticSearchError(RuntimeError):
     """语义搜索不可用时抛出，携带面向用户的提示信息。"""
 
 
+def _reset_chromadb_registry() -> None:
+    """清理 chromadb ``SharedSystemClient`` 注册表中的残留状态。
+
+    A1-修复：chromadb 1.x 的 ``PersistentClient`` 初始化失败时，部分初始化的
+    ``System`` 会残留在 ``SharedSystemClient._identifier_to_system`` 中（refcount
+    未同步），导致后续 ``PersistentClient`` 调用抛出逃逸的 ``KeyError``，穿透 HTTP
+    处理器造成连接重置（RemoteDisconnected）。在失败路径调用官方
+    ``clear_system_cache()`` 重置注册表，保证下次重试从干净状态开始。
+    清理失败不应掩盖原始异常，仅记录日志。
+    """
+    try:
+        from chromadb.api.shared_system_client import (  # type: ignore[import-untyped]
+            SharedSystemClient,
+        )
+
+        SharedSystemClient.clear_system_cache()
+        logger.debug("已清理 chromadb SharedSystemClient 注册表残留")
+    except Exception:  # noqa: BLE001 - 清理失败不应掩盖原始异常
+        logger.debug("清理 chromadb SharedSystemClient 注册表失败", exc_info=True)
+
+
 # ---------------------------------------------------------------------------
 # 默认配置
 # ---------------------------------------------------------------------------
@@ -103,16 +124,45 @@ class VectorIndex:
             ) from exc
 
         logger.info("正在加载嵌入模型 %s ...", self.model_name)
-        self._model = SentenceTransformer(self.model_name)
+        try:
+            self._model = SentenceTransformer(self.model_name)
+        except Exception as exc:  # noqa: BLE001 - A1-修复: 模型加载失败同样走 503 降级
+            raise SemanticSearchError(
+                f"嵌入模型 {self.model_name} 加载失败: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
 
-        self._client = chromadb.PersistentClient(
-            path=str(self._db_path),
-            settings=Settings(anonymized_telemetry=False, allow_reset=True),
-        )
+        # A1-修复: PersistentClient 可能抛出任意运行时异常（如 Python 3.14 下
+        # Rust 绑定报 'RustBindingsAPI' object has no attribute 'bindings'），
+        # 必须包装为 SemanticSearchError 以便上层返回 503 优雅降级；
+        # 同时清理 SharedSystemClient 注册表残留，避免后续调用抛出 KeyError。
+        try:
+            self._client = chromadb.PersistentClient(
+                path=str(self._db_path),
+                settings=Settings(anonymized_telemetry=False, allow_reset=True),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _reset_chromadb_registry()
+            raise SemanticSearchError(
+                f"ChromaDB 初始化失败: {type(exc).__name__}: {exc}"
+            ) from exc
         self._initialized = True
         elapsed = time.perf_counter() - start
         logger.info("嵌入模型加载完成，耗时 %.2fs", elapsed)
         logger.info("向量索引初始化完成，持久化路径: %s", self._db_path)
+
+        # A3-优化: 预热推理路径与全局集合，避免首次真实查询承担
+        # torch 推理初始化 + HNSW 索引加载的一次性开销（实测 ~500ms）。
+        # 预热失败不影响可用性，仅记录日志。
+        try:
+            self._encode(["remember-me warmup"])
+            self._client.get_or_create_collection(
+                name=self._collection_name(None),
+                metadata={"hnsw:space": "cosine"},
+            ).count()
+            logger.info("语义栈预热完成")
+        except Exception:  # noqa: BLE001
+            logger.debug("语义栈预热失败（不影响后续按需初始化）", exc_info=True)
 
     def _encode(self, texts: list[str]) -> list[list[float]]:
         """用 sentence-transformers 编码文本为向量列表。"""

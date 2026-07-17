@@ -46,6 +46,11 @@ class _RequestHandler(BaseHTTPRequestHandler):
             except SemanticSearchError as exc:
                 sys.stderr.write(f"[semantic] 向量索引不可用: {exc}\n")
                 cls._vector_index = None  # type: ignore[assignment]
+            except Exception as exc:  # noqa: BLE001 - A1-修复: 任意语义栈故障都降级为 503
+                sys.stderr.write(
+                    f"[semantic] 向量索引初始化异常 ({type(exc).__name__}): {exc}\n"
+                )
+                cls._vector_index = None  # type: ignore[assignment]
         return cls._vector_index
 
     # ------------------------------------------------------------------
@@ -83,7 +88,12 @@ class _RequestHandler(BaseHTTPRequestHandler):
             return {}
         if length <= 0:
             return {}
-        raw = self.rfile.read(length).decode("utf-8")
+        try:
+            raw = self.rfile.read(length).decode("utf-8")
+        except UnicodeDecodeError:
+            # A1-修复: 非 UTF-8 请求体不得使处理器崩溃（连接重置），
+            # 按无效请求体处理，由端点返回 400
+            return {}
         try:
             data = json.loads(raw)
             if isinstance(data, dict):
@@ -408,7 +418,18 @@ class _RequestHandler(BaseHTTPRequestHandler):
         import time
 
         start = time.perf_counter()
-        stats = index_all_memories(index)
+        try:
+            stats = index_all_memories(index)
+        except SemanticSearchError as exc:
+            # A1-修复: 索引过程中语义栈故障同样返回 503，不得穿透 HTTP 处理器
+            self._send_json(
+                503,
+                {
+                    "error": "语义搜索服务暂不可用",
+                    "reason": str(exc),
+                },
+            )
+            return
         latency_ms = round((time.perf_counter() - start) * 1000, 2)
         self._send_json(
             200,
@@ -691,7 +712,15 @@ class MemoryEngineServer:
                     return
                 time.sleep(0.1)
             try:
-                _RequestHandler.get_vector_index(force=True)
+                index = _RequestHandler.get_vector_index(force=True)
+                # A1-修复: get_vector_index 失败时返回 None 而非抛异常，
+                # 此时不得置就绪标志，否则 /health 会误报 semantic_ready=true
+                if index is None:
+                    sys.stderr.write(
+                        "[preload] 后台向量索引预加载失败: "
+                        "语义栈不可用，语义端点将以 503 降级响应\n"
+                    )
+                    return
                 # A1-修复: 用锁保护就绪标志写入
                 with _RequestHandler._vector_index_lock:
                     _RequestHandler._vector_index_ready = True

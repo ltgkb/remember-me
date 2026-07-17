@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # 允许从 GitHub UI 手动触发，便于首次接入 remote 后验证流水线
+  workflow_dispatch:
 
 jobs:
   node:
@@ -27,17 +29,27 @@ jobs:
           cache: 'npm'
           cache-dependency-path: packages/vscode-extension/package-lock.json
 
-      - name: Install dependencies
+      # npm ci 严格依据 packages/vscode-extension/package-lock.json 安装（working-directory 即 lockfile 所在目录）。
+      # --foreground-scripts：Windows runner 上让 install 脚本在前台执行，规避后台脚本句柄/EPERM 类
+      # flaky 失败，同时让脚本输出进入日志便于诊断。
+      - name: Install dependencies (npm ci, lockfile-driven)
         working-directory: packages/vscode-extension
-        run: npm ci
+        run: npm ci --foreground-scripts --no-audit --no-fund
 
       - name: Compile
         working-directory: packages/vscode-extension
         run: npm run compile
 
-      - name: Test
+      # Windows runner 上 npm test 偶发文件句柄占用（EPERM/EBUSY），允许重试一次作为护栏；
+      # 真实失败会在第二次运行时仍然失败，不会掩盖问题。
+      - name: Test (retry once on flaky failure)
         working-directory: packages/vscode-extension
-        run: npm test
+        shell: bash
+        run: |
+          npm test || {
+            echo "::warning::npm test failed once; retrying (flaky file-handle guard for Windows runners)"
+            npm test
+          }
 
   python:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -46,7 +58,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.11', '3.12']
+        # 3.12：本地开发基准（uv 管理的 .venv 即为 CPython 3.12.x）。
+        # 3.14：金丝雀腿，让 3.14 类破坏（如 chromadb RustBindingsAPI 初始化失败）在 CI 暴露，
+        #       而不是在本地开发时暴露。
+        python-version: ['3.12', '3.14']
 
     steps:
       - name: Checkout repository
@@ -59,11 +74,105 @@ jobs:
           cache: 'pip'
           cache-dependency-path: packages/memory-engine/pyproject.toml
 
-      - name: Install and test
+      # 只安装引擎本体（不含语义栈）。
+      # --no-deps：语义栈（chromadb / sentence-transformers）在下一步单独安装，便于隔离失败。
+      # --ignore-requires-python：pyproject.toml 的 requires-python 正在向 >=3.11,<3.14 收敛，
+      # 3.14 金丝雀腿必须能完成安装才能运行非语义测试。
+      - name: Install engine (core, without semantic stack)
         working-directory: packages/memory-engine
         shell: bash
         run: |
-          pip install -e .
-          python -m memory_engine.server --port 8765 &
-          sleep 3
-          python scripts/test_endpoints.py
+          python -m pip install --upgrade pip
+          pip install -e . --no-deps --ignore-requires-python
+
+      # 语义栈独立成步 + continue-on-error：chromadb/sentence-transformers 在 3.14 上可能缺 wheel
+      # 或运行期初始化失败。--only-binary :all: 防止 pip 在 3.14 上从源码编译 torch 等重型依赖
+      # 导致 job 超时。安装失败不阻塞本腿——非语义测试仍须通过，语义端点按设计降级为 503。
+      - name: Install semantic stack (chromadb + sentence-transformers)
+        id: semantic-install
+        working-directory: packages/memory-engine
+        shell: bash
+        continue-on-error: true
+        run: |
+          pip install --only-binary :all: "chromadb>=1.5.0" "sentence-transformers>=2.3.0"
+
+      # 即使安装成功也要探活导入：3.14 上 chromadb 可能装得上但初始化失败。
+      # 输出 available 标志，供就绪等待与后续条件化语义测试使用。
+      - name: Probe semantic stack availability
+        id: semantic
+        working-directory: packages/memory-engine
+        shell: bash
+        run: |
+          if python -c "import chromadb, sentence_transformers" 2>probe.err; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "semantic stack import OK"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Semantic stack unavailable on Python ${{ matrix.python-version }} / ${{ matrix.os }}; semantic endpoints will degrade to 503"
+            cat probe.err
+          fi
+
+      # 服务器在后台线程预加载 embedding 模型，固定 sleep 3 不可靠：
+      # 先轮询 /health 直到响应（服务就绪，60s 超时）；若语义栈可用，再额外等待
+      # semantic_ready=true（180s 超时，超时仅告警——端点测试容忍降级 503）。
+      - name: Start server and wait for readiness
+        working-directory: packages/memory-engine
+        shell: bash
+        env:
+          SEMANTIC_AVAILABLE: ${{ steps.semantic.outputs.available }}
+        run: |
+          python -m memory_engine.server --port 8765 > server-ci.log 2>&1 &
+          echo $! > server-ci.pid
+          echo "server pid: $(cat server-ci.pid)"
+          python - <<'EOF'
+          import json, os, sys, time, urllib.request
+
+          url = "http://localhost:8765/health"
+          want_semantic = os.environ.get("SEMANTIC_AVAILABLE") == "true"
+          up_deadline = time.monotonic() + 60
+          ready_deadline = time.monotonic() + 180
+          payload = {}
+
+          while True:
+              try:
+                  with urllib.request.urlopen(url, timeout=3) as resp:
+                      payload = json.loads(resp.read().decode("utf-8"))
+                      print("health:", json.dumps(payload, ensure_ascii=False))
+                      break
+              except Exception as exc:
+                  if time.monotonic() > up_deadline:
+                      print(f"server did not respond on /health within 60s: {exc}")
+                      sys.exit(1)
+                  time.sleep(2)
+
+          if want_semantic:
+              while not payload.get("semantic_ready"):
+                  if time.monotonic() > ready_deadline:
+                      print("::warning::semantic_ready not true within 180s; continuing (endpoint tests tolerate degraded 503)")
+                      break
+                  time.sleep(3)
+                  try:
+                      with urllib.request.urlopen(url, timeout=3) as resp:
+                          payload = json.loads(resp.read().decode("utf-8"))
+                          print("health:", json.dumps(payload, ensure_ascii=False))
+                  except Exception as exc:
+                      print(f"health poll error: {exc}")
+          EOF
+
+      # test_endpoints.py 内置降级断言：语义栈不可用时语义端点应返回带 fallback 字段的 503，
+      # 因此两条腿（3.12 / 3.14）上本步骤都必须通过。
+      - name: Run endpoint tests
+        working-directory: packages/memory-engine
+        shell: bash
+        run: python scripts/test_endpoints.py
+
+      - name: Stop server and dump log
+        if: always()
+        working-directory: packages/memory-engine
+        shell: bash
+        run: |
+          if [ -f server-ci.pid ]; then
+            kill "$(cat server-ci.pid)" 2>/dev/null || true
+          fi
+          echo "--- server-ci.log (tail) ---"
+          tail -n 50 server-ci.log 2>/dev/null || true

@@ -5,6 +5,10 @@ __pycache__/
 venv/
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
 
 # Node / VS Code extension
 node_modules/
