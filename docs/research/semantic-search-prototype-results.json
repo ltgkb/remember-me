@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-07-14 02:05:09",
+  "python_version": "3.14.3 (main, Mar  3 2026, 15:00:44) [MSC v.1944 64 bit (AMD64)]",
+  "model": "all-MiniLM-L6-v2",
+  "vector_db": "ChromaDB",
+  "model_load_ms": 7173.68,
+  "encode_100_ms": 853.46,
+  "index_build_ms": 87.59,
+  "disk_usage_kb": 528.0,
+  "queries": [
+    {
+      "label": "中文查询",
+      "query": "用户登录相关的讨论",
+      "latency_ms": 11.83,
+      "top5_scores": [
+        0.6819,
+        0.6737,
+        0.5921,
+        0.5776,
+        0.5767
+      ],
+      "top5_langs": [
+        "zh",
+        "zh",
+        "zh",
+        "zh",
+        "zh"
+      ]
+    },
+    {
+      "label": "英文查询",
+      "query": "authentication and OAuth decisions",
+      "latency_ms": 1.58,
+      "top5_scores": [
+        0.4355,
+        0.3298,
+        0.2775,
+        0.209,
+        0.1611
+      ],
+      "top5_langs": [
+        "zh",
+        "en",
+        "en",
+        "en",
+        "zh"
+      ]
+    },
+    {
+      "label": "混合查询",
+      "query": "Python 项目的认证方案",
+      "latency_ms": 1.61,
+      "top5_scores": [
+        0.6461,
+        0.5495,
+        0.529,
+        0.5215,
+        0.5162
+      ],
+      "top5_langs": [
+        "zh",
+        "zh",
+        "zh",
+        "zh",
+        "zh"
+      ]
+    }
+  ]
+}

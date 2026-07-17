@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "remember-me-engine"
+version = "0.1.0"
+description = "Python memory engine for Remember Me — CLI tools and core information extraction"
+readme = {text = "", content-type = "text/plain"}
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Remember Me Team"}
+]
+keywords = ["memory", "extraction", "semantic-search", "conversation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "chromadb>=1.5.0",
+    "sentence-transformers>=2.3.0",
+]
+
+[project.scripts]
+remember-me-extract = "memory_engine.cli:extract_cmd"
+remember-me-search = "memory_engine.cli:search_cmd"
+remember-me-backup-list = "memory_engine.cli:backup_list_cmd"
+
+[project.optional-dependencies]
+# 精简安装：仅 CLI 提取与关键词搜索，不含语义搜索重量级依赖
+minimal = []
+dev = ["pytest", "mypy", "ruff"]
+benchmark = []  # sentence-transformers 已含于主依赖；语义搜索基准测试分组
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

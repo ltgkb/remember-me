@@ -1,0 +1,95 @@
+{
+  "id": "thesis-template",
+  "name": "学术论文模板",
+  "description": "适用于期刊论文、学位论文、学术综述等场景",
+  "category": "academic",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "学术评审、同行研究者",
+    "typicalLength": "8-20 页（期刊）/ 50-100 页（学位论文）",
+    "language": "中文/英文",
+    "difficulty": "高级"
+  },
+  "structure": {
+    "preamble": "请撰写符合学术规范的论文。内容应逻辑严谨、论证充分、引用规范。使用用户偏好的引用格式。",
+    "sections": [
+      {
+        "id": "abstract",
+        "title": "1. 摘要（Abstract）",
+        "description": "中英文摘要，概括研究目的、方法、结果、结论",
+        "required": true,
+        "prompt": "撰写结构化摘要（Background, Methods, Results, Conclusion），中文 300-500 字，英文 200-300 词。关键词 3-5 个。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "introduction",
+        "title": "2. 引言（Introduction）",
+        "description": "研究背景、问题陈述、研究意义、论文结构",
+        "required": true,
+        "prompt": "从宏观到微观引出研究问题：领域背景 → 现有研究不足 → 本文研究问题 → 研究意义 → 论文结构概述。",
+        "memoryFocus": ["profile", "project"]
+      },
+      {
+        "id": "related-work",
+        "title": "3. 相关工作/文献综述（Related Work）",
+        "description": "系统综述相关研究，定位本文贡献",
+        "required": true,
+        "prompt": "按主题或时间线组织文献综述。对每类相关工作分析其贡献与不足，最后明确本文与已有工作的区别和创新点。使用规范引用格式。",
+        "memoryFocus": ["profile", "project"],
+        "checklist": ["引用格式统一", "综述有逻辑线索", "明确本文定位"]
+      },
+      {
+        "id": "methodology",
+        "title": "4. 方法论（Methodology）",
+        "description": "研究方法、实验设计、技术路线",
+        "required": true,
+        "prompt": "详细描述研究方法、实验设计、数据集、评估指标、实现细节。确保可复现。引用第一章定义的理论框架。",
+        "memoryFocus": ["profile", "project"],
+        "checklist": ["方法描述足够详细以复现", "评估指标与项目定义一致"]
+      },
+      {
+        "id": "experiments",
+        "title": "5. 实验与结果（Experiments & Results）",
+        "description": "实验结果、数据分析、可视化",
+        "required": true,
+        "prompt": "呈现实验结果，包含表格、图表文字描述。进行消融实验、对比实验、统计分析。讨论结果的合理性和局限性。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "discussion",
+        "title": "6. 讨论（Discussion）",
+        "description": "结果解读、与已有工作对比、局限性",
+        "required": true,
+        "prompt": "深入讨论实验结果的含义、与已有工作的对比、本研究的优势与局限、未来改进方向。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "conclusion",
+        "title": "7. 结论（Conclusion）",
+        "description": "总结贡献、展望未来",
+        "required": true,
+        "prompt": "总结主要贡献（不要重复结果），指出研究局限性，提出未来研究方向。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "references",
+        "title": "8. 参考文献（References）",
+        "description": "规范格式的参考文献列表",
+        "required": true,
+        "prompt": "整理所有引用文献，使用用户偏好的引用格式（APA / MLA / GB/T 7714 等）。确保格式统一、信息完整。",
+        "memoryFocus": ["style"],
+        "checklist": ["引用格式统一", "无遗漏引用", "信息完整"]
+      }
+    ],
+    "appendix": "论文应遵循学术诚信，所有引用必须标注来源。确保图表清晰、公式编号连贯、术语全文一致。"
+  },
+  "memoryConfig": {
+    "priority": ["profile", "style", "project"],
+    "requiredStyleHabits": ["引用格式规范"],
+    "projectContextKeys": ["terminology", "decisions"]
+  },
+  "tags": ["论文", "学术", "期刊", "学位论文"],
+  "isBuiltIn": true
+}

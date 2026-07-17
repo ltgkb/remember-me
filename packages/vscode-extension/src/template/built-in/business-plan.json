@@ -1,0 +1,104 @@
+{
+  "id": "business-plan",
+  "name": "商业计划书模板",
+  "description": "适用于融资路演、战略汇报、商业可行性分析等场景",
+  "category": "business",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "投资人、合伙人、高管",
+    "typicalLength": "20-40 页",
+    "language": "中文",
+    "difficulty": "高级"
+  },
+  "structure": {
+    "preamble": "请撰写一份专业的商业计划书。内容应逻辑严密、数据可信、说服力强，适合向投资人或高层汇报。",
+    "sections": [
+      {
+        "id": "executive-summary",
+        "title": "1. 执行摘要",
+        "description": "一页纸概括整个商业计划的核心内容",
+        "required": true,
+        "prompt": "用一页纸精炼概括：项目是什么、解决什么问题、市场多大、为什么是现在、团队优势、融资需求。语言要有冲击力。",
+        "memoryFocus": ["project", "profile"]
+      },
+      {
+        "id": "problem",
+        "title": "2. 问题与机会",
+        "description": "市场痛点与商业机会",
+        "required": true,
+        "prompt": "描述目标市场的核心痛点、现有解决方案的不足、市场缺口。引用数据和案例支撑。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "solution",
+        "title": "3. 产品/服务方案",
+        "description": "你的解决方案是什么",
+        "required": true,
+        "prompt": "清晰描述产品/服务如何解决上述问题。包含核心功能、差异化优势、技术/服务壁垒。引用项目核心功能描述。",
+        "memoryFocus": ["project"],
+        "checklist": ["与项目上下文的核心功能一致", "差异化优势明确"]
+      },
+      {
+        "id": "market",
+        "title": "4. 市场分析",
+        "description": "TAM/SAM/SOM、市场趋势、增长预测",
+        "required": true,
+        "prompt": "分析目标市场的规模（TAM/SAM/SOM）、增长趋势、驱动因素。引用可靠数据源。",
+        "memoryFocus": ["project"],
+        "checklist": ["市场数据有来源", "TAM/SAM/SOM 计算合理"]
+      },
+      {
+        "id": "business-model",
+        "title": "5. 商业模式",
+        "description": "如何赚钱、定价策略、 unit economics",
+        "required": true,
+        "prompt": "详细描述盈利模式、收入来源、定价策略、客户获取成本（CAC）、生命周期价值（LTV）、LTV/CAC 比率。",
+        "memoryFocus": ["profile", "project"]
+      },
+      {
+        "id": "competition",
+        "title": "6. 竞争格局",
+        "description": "竞品分析、竞争壁垒、护城河",
+        "required": true,
+        "prompt": "绘制竞争格局图（可文字描述），分析主要竞争对手、市场份额、你的竞争优势和护城河。引用项目已定义的竞品信息。",
+        "memoryFocus": ["project"],
+        "checklist": ["引用项目已定义的竞品", "竞争优势可防御"]
+      },
+      {
+        "id": "team",
+        "title": "7. 团队介绍",
+        "description": "核心团队背景与分工",
+        "required": false,
+        "prompt": "介绍核心团队成员的背景、经验、分工。强调团队与项目的匹配度。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "financials",
+        "title": "8. 财务预测",
+        "description": "3-5 年收入、成本、利润预测",
+        "required": true,
+        "prompt": "提供 3-5 年的财务预测，包括收入预测、成本结构、利润预测、关键假设。可用表格形式呈现。",
+        "memoryFocus": ["profile"],
+        "checklist": ["预测有合理假设支撑", "包含敏感性分析"]
+      },
+      {
+        "id": "funding",
+        "title": "9. 融资计划",
+        "description": "融资需求、资金用途、里程碑",
+        "required": false,
+        "prompt": "说明本轮融资金额、资金用途分配、关键里程碑、退出机制。",
+        "memoryFocus": ["project"]
+      }
+    ],
+    "appendix": "商业计划书应数据驱动、逻辑闭环。确保每个数字都有假设支撑，每个论断都有证据支撑。"
+  },
+  "memoryConfig": {
+    "priority": ["project", "profile", "style"],
+    "requiredStyleHabits": ["财务预测", "市场分析", "竞品对比"],
+    "projectContextKeys": ["competitors", "targetUsers", "coreFeatures"]
+  },
+  "tags": ["商业计划", "融资", "路演", "BP"],
+  "isBuiltIn": true
+}

@@ -1,0 +1,205 @@
+{
+  "name": "remember-me",
+  "displayName": "Remember Me - AI记忆管家",
+  "description": "让AI记住你的风格、偏好和项目上下文，不再每次从头教",
+  "version": "0.3.0",
+  "publisher": "remember-me-team",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Notebooks",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "memory",
+    "context",
+    "assistant",
+    "deepseek",
+    "ollama"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "rememberMe.openSettings",
+        "title": "打开设置",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "rememberMe.startChat",
+        "title": "开始对话",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "rememberMe.switchProject",
+        "title": "切换项目"
+      },
+      {
+        "command": "rememberMe.searchMemory",
+        "title": "搜索记忆"
+      },
+      {
+        "command": "rememberMe.updateProfile",
+        "title": "更新个人画像"
+      },
+      {
+        "command": "rememberMe.showMenu",
+        "title": "显示菜单"
+      },
+      {
+        "command": "rememberMe.showQuickMenu",
+        "title": "显示快捷菜单"
+      },
+      {
+        "command": "rememberMe.openOnboarding",
+        "title": "打开设置向导"
+      },
+      {
+        "command": "rememberMe.openMemoryEditor",
+        "title": "打开记忆编辑器"
+      },
+      {
+        "command": "rememberMe.refreshMemory",
+        "title": "刷新记忆"
+      },
+      {
+        "command": "rememberMe.viewConversationHistory",
+        "title": "查看对话历史"
+      },
+      {
+        "command": "rememberMe.showAbout",
+        "title": "关于 Remember Me"
+      },
+      {
+        "command": "rememberMe.selectTemplate",
+        "title": "选择文档模板",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "rememberMe.applyTemplate",
+        "title": "应用模板"
+      },
+      {
+        "command": "rememberMe.previewTemplate",
+        "title": "预览模板结构"
+      },
+      {
+        "command": "rememberMe.manageTemplates",
+        "title": "管理模板"
+      },
+      {
+        "command": "rememberMe.openVersionControl",
+        "title": "记忆版本控制",
+        "icon": "$(history)"
+      },
+      {
+        "command": "rememberMe.ignoreRecommendation",
+        "title": "忽略推荐"
+      },
+      {
+        "command": "rememberMe.exportTemplate",
+        "title": "导出模板",
+        "icon": "$(export)"
+      },
+      {
+        "command": "rememberMe.importTemplate",
+        "title": "导入模板",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "rememberMe.toggleSearchMode",
+        "title": "切换搜索模式（关键词/语义）",
+        "icon": "$(symbol-enum)"
+      },
+      {
+        "command": "rememberMe.buildSemanticIndex",
+        "title": "构建语义搜索索引",
+        "icon": "$(database)"
+      }
+    ],
+    "views": {
+      "rememberMe": [
+        {
+          "id": "rememberMeSidebar",
+          "name": "Remember Me",
+          "when": "rememberMe.enabled"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rememberMe",
+          "title": "Remember Me",
+          "icon": "$(history)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Remember Me",
+      "properties": {
+        "rememberMe.aiProvider": {
+          "type": "string",
+          "default": "deepseek",
+          "enum": [
+            "deepseek",
+            "qwen",
+            "ernie",
+            "chatglm",
+            "ollama",
+            "lmstudio"
+          ],
+          "description": "选择AI提供商"
+        },
+        "rememberMe.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API密钥"
+        },
+        "rememberMe.apiBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "自定义API基础URL"
+        },
+        "rememberMe.modelName": {
+          "type": "string",
+          "default": "deepseek-chat",
+          "description": "模型名称"
+        },
+        "rememberMe.memoryPath": {
+          "type": "string",
+          "default": "",
+          "description": "记忆存储路径（默认 ~/.remember-me）"
+        }
+      }
+    },
+    "viewsWelcome": [
+      {
+        "view": "rememberMeSidebar",
+        "contents": "欢迎使用 Remember Me！\n\n让AI记住你的风格、偏好和项目上下文。\n\n[开始设置](command:rememberMe.openSettings)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "tsc -p ./ && node out/test/runner.js"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "mocha": "^10.2.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "openai": "^4.28.0"
+  }
+}

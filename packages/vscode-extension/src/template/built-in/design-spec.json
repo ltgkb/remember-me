@@ -1,0 +1,77 @@
+{
+  "id": "design-spec",
+  "name": "设计说明文档模板",
+  "description": "适用于设计系统、组件说明、UI/UX 设计文档等场景",
+  "category": "design",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "设计师、前端开发",
+    "typicalLength": "3-10 页/组件",
+    "language": "中文",
+    "difficulty": "标准"
+  },
+  "structure": {
+    "preamble": "请撰写清晰、精确的设计说明文档。开发团队应能根据文档准确还原设计。",
+    "sections": [
+      {
+        "id": "design-overview",
+        "title": "1. 设计概述",
+        "description": "设计目标、使用场景、设计原则",
+        "required": true,
+        "prompt": "说明本次设计的目标、适用场景、遵循的设计原则（简洁/一致/可访问等）。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "design-system",
+        "title": "2. 设计规范",
+        "description": "色彩、字体、间距、圆角等 Token",
+        "required": true,
+        "prompt": "列出设计系统的核心 Token：主色/辅色/中性色、字体层级、间距系统、圆角规范、阴影规范。",
+        "memoryFocus": ["profile"],
+        "checklist": ["Token 命名规范", "数值精确"]
+      },
+      {
+        "id": "components",
+        "title": "3. 组件说明",
+        "description": "各组件的规格、状态、交互",
+        "required": true,
+        "prompt": "逐组件说明：组件名称、功能描述、尺寸规格、各状态（默认/悬停/禁用/错误）、交互行为、使用示例。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "interaction",
+        "title": "4. 交互说明",
+        "description": "动效、手势、状态流转",
+        "required": false,
+        "prompt": "描述关键交互：页面转场、按钮反馈、表单验证、加载状态、空状态等。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "responsive",
+        "title": "5. 响应式/适配规则",
+        "description": "不同断点下的布局变化",
+        "required": false,
+        "prompt": "说明各断点（移动端/平板/桌面端）的布局变化和适配规则。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "accessibility",
+        "title": "6. 可访问性要求",
+        "description": "WCAG 标准、色彩对比度、键盘导航",
+        "required": false,
+        "prompt": "列出可访问性要求：色彩对比度标准、键盘导航支持、屏幕阅读器适配、焦点管理。",
+        "memoryFocus": ["style"]
+      }
+    ],
+    "appendix": "设计文档应精确到像素，开发能直接按文档还原。所有 Token 值应与设计系统一致。"
+  },
+  "memoryConfig": {
+    "priority": ["style", "project", "profile"],
+    "requiredStyleHabits": [],
+    "projectContextKeys": ["terminology", "decisions"]
+  },
+  "tags": ["设计", "UI", "UX", "组件"],
+  "isBuiltIn": true
+}

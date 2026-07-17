@@ -1,0 +1,92 @@
+{
+  "id": "activity-plan",
+  "name": "活动策划方案模板",
+  "description": "适用于线上/线下活动、营销 campaign、发布会等场景",
+  "category": "activity",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "运营团队、市场团队",
+    "typicalLength": "5-10 页",
+    "language": "中文",
+    "difficulty": "入门"
+  },
+  "structure": {
+    "preamble": "请撰写一份完整的活动策划方案。方案应有创意、可执行、数据可追踪。",
+    "sections": [
+      {
+        "id": "activity-overview",
+        "title": "1. 活动概述",
+        "description": "活动背景、目标、主题",
+        "required": true,
+        "prompt": "说明活动背景、核心目标（品牌/转化/拉新/留存）、活动主题和 slogan。目标需量化。",
+        "memoryFocus": ["project", "profile"]
+      },
+      {
+        "id": "target-audience",
+        "title": "2. 目标人群",
+        "description": "活动的目标受众画像",
+        "required": true,
+        "prompt": "描述目标受众的人口统计特征、行为特征、兴趣偏好。引用项目已定义的目标用户画像。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "activity-form",
+        "title": "3. 活动形式与玩法",
+        "description": "活动机制、玩法设计、创意亮点",
+        "required": true,
+        "prompt": "详细描述活动形式、参与机制、奖励设置、裂变设计、创意亮点。确保玩法简单易懂、参与门槛低。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "timeline-detail",
+        "title": "4. 活动排期",
+        "description": "预热期、正式期、返场期的时间节点",
+        "required": true,
+        "prompt": "列出活动各阶段的时间节点、关键动作、负责人。可用甘特图文字描述。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "channel",
+        "title": "5. 渠道与推广",
+        "description": "投放渠道、内容规划、KOL 合作",
+        "required": false,
+        "prompt": "列出活动推广渠道、各渠道的内容规划、预算分配、KOL/达人合作计划。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "budget",
+        "title": "6. 预算规划",
+        "description": "活动预算明细与 ROI 预估",
+        "required": true,
+        "prompt": "列出活动预算明细（奖品、投放、人力、物料等），计算预估 ROI 和各项成本。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "risk",
+        "title": "7. 风险预案",
+        "description": "潜在风险与应对措施",
+        "required": false,
+        "prompt": "识别活动可能面临的风险（技术/舆情/合规/天气等），并给出应对措施和责任人。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "metrics",
+        "title": "8. 效果评估",
+        "description": "核心指标、数据追踪、复盘框架",
+        "required": true,
+        "prompt": "定义活动的核心 KPI（曝光/参与/转化/留存等）、数据追踪方式、复盘框架。",
+        "memoryFocus": ["style"]
+      }
+    ],
+    "appendix": "活动策划要兼顾创意与可执行性。所有数字目标需有历史数据或行业基准支撑。"
+  },
+  "memoryConfig": {
+    "priority": ["project", "profile", "style"],
+    "requiredStyleHabits": [],
+    "projectContextKeys": ["targetUsers", "coreFeatures"]
+  },
+  "tags": ["活动", "运营", "营销", "策划"],
+  "isBuiltIn": true
+}

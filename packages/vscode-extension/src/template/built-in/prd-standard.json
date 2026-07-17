@@ -1,0 +1,98 @@
+{
+  "id": "prd-standard",
+  "name": "PRD 标准模板",
+  "description": "产品需求文档标准结构，适用于功能模块、整站改版、新特性等场景",
+  "category": "prd",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "产品经理、技术团队",
+    "typicalLength": "5-15 页",
+    "language": "中文",
+    "difficulty": "标准"
+  },
+  "structure": {
+    "preamble": "请根据用户提供的需求，撰写一份完整的 PRD（产品需求文档）。PRD 应清晰、可执行，便于设计与开发团队理解并实施。",
+    "sections": [
+      {
+        "id": "background",
+        "title": "1. 背景与目标",
+        "description": "说明为什么做这个功能，解决什么问题",
+        "required": true,
+        "prompt": "阐述项目/功能的背景、业务痛点、用户痛点。明确本次需求的总体目标和预期收益。必要时引用数据支撑。",
+        "memoryFocus": ["profile", "project"],
+        "checklist": ["背景描述清晰", "目标可量化", "与项目核心功能对齐"]
+      },
+      {
+        "id": "user-persona",
+        "title": "2. 用户画像与场景",
+        "description": "目标用户是谁，在什么场景下使用",
+        "required": true,
+        "prompt": "描述目标用户群体特征、使用场景、用户旅程。引用项目上下文中已定义的用户画像和术语。",
+        "memoryFocus": ["project"],
+        "checklist": ["用户角色定义准确", "场景描述具体", "引用项目术语表"]
+      },
+      {
+        "id": "requirements",
+        "title": "3. 功能需求",
+        "description": "详细描述功能点，使用 MoSCoW 或优先级标注",
+        "required": true,
+        "prompt": "逐条列出功能需求。每条需求应包含：功能名称、功能描述、优先级（Must / Should / Could / Won't）、验收标准。",
+        "memoryFocus": ["style", "project"],
+        "checklist": ["需求条目化", "优先级标注清晰", "验收标准可测试"]
+      },
+      {
+        "id": "user-stories",
+        "title": "4. 用户故事",
+        "description": "以用户视角描述需求（可选，但强烈推荐）",
+        "required": false,
+        "prompt": "为每个核心功能编写用户故事，格式：「作为 <角色>，我希望 <目标>，以便 <收益>」。可附 Acceptance Criteria。",
+        "memoryFocus": ["project"],
+        "checklist": ["故事符合 INVEST 原则", "Acceptance Criteria 清晰"]
+      },
+      {
+        "id": "ui-ux",
+        "title": "5. 交互与原型",
+        "description": "页面流程、关键交互、原型说明",
+        "required": false,
+        "prompt": "描述页面结构、信息架构、关键交互流程。可包含流程图文字描述、原型链接占位。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "competitor",
+        "title": "6. 竞品分析",
+        "description": "与竞品的对比分析（可选）",
+        "required": false,
+        "prompt": "对比主要竞品的同类功能，分析优劣势。引用项目上下文中定义的竞品信息。",
+        "memoryFocus": ["project"],
+        "checklist": ["引用项目已定义的竞品", "分析有数据或事实支撑"]
+      },
+      {
+        "id": "acceptance",
+        "title": "7. 验收标准",
+        "description": "功能交付的验收条件",
+        "required": true,
+        "prompt": "逐条列出可验证的验收标准，每条标准应可通过测试或演示确认通过/不通过。",
+        "memoryFocus": ["style"],
+        "checklist": ["标准可量化或二元判断", "覆盖所有 Must 级需求"]
+      },
+      {
+        "id": "timeline",
+        "title": "8. 排期与里程碑",
+        "description": "开发计划与关键时间节点",
+        "required": false,
+        "prompt": "建议迭代计划、里程碑、关键依赖项。可按 MVP / Phase 1 / Phase 2 分阶段。",
+        "memoryFocus": ["profile"]
+      }
+    ],
+    "appendix": "文档撰写完成后，请自检：1）是否覆盖所有必填章节；2）需求是否可测试；3）术语是否与项目定义一致。"
+  },
+  "memoryConfig": {
+    "priority": ["project", "style", "profile"],
+    "requiredStyleHabits": ["MoSCoW优先级", "用户故事", "竞品对比", "验收标准", "用户旅程图"],
+    "projectContextKeys": ["decisions", "terminology", "competitors"]
+  },
+  "tags": ["PRD", "产品需求", "功能文档", "标准"],
+  "isBuiltIn": true
+}

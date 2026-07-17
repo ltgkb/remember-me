@@ -1,0 +1,77 @@
+{
+  "id": "report",
+  "name": "汇报材料模板",
+  "description": "适用于周报、月报、项目汇报、战略汇报等场景",
+  "category": "report",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "管理层、跨部门团队",
+    "typicalLength": "3-10 页",
+    "language": "中文",
+    "difficulty": "入门"
+  },
+  "structure": {
+    "preamble": "请撰写简洁有力的汇报材料。结论先行、数据支撑、建议明确。",
+    "sections": [
+      {
+        "id": "executive-summary-report",
+        "title": "1. 核心结论",
+        "description": "一页纸核心结论，结论先行",
+        "required": true,
+        "prompt": "用 3-5 句话概括汇报的核心结论。结论先行，直接回答「现状如何、问题是什么、建议怎么做」。",
+        "memoryFocus": ["style", "profile"]
+      },
+      {
+        "id": "situation",
+        "title": "2. 现状回顾",
+        "description": "当前进展、关键数据、完成情况",
+        "required": true,
+        "prompt": "呈现当前进展和关键数据。使用数据图表文字描述，突出核心指标变化。",
+        "memoryFocus": ["project", "style"],
+        "checklist": ["数据有对比（环比/同比）", "突出异常点"]
+      },
+      {
+        "id": "achievements",
+        "title": "3. 关键成果",
+        "description": "已完成的重要事项和成果",
+        "required": true,
+        "prompt": "列出关键成果，每条成果包含：事项、量化影响、与目标的对比。按重要性排序。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "issues",
+        "title": "4. 问题与风险",
+        "description": "当前面临的问题、阻塞、风险",
+        "required": true,
+        "prompt": "列出当前问题和风险，每条包含：问题描述、影响范围、严重程度、已采取/建议的应对措施。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "next-steps",
+        "title": "5. 下阶段计划",
+        "description": "下一步行动、时间节点、资源需求",
+        "required": true,
+        "prompt": "列出下阶段核心任务、时间节点、负责人、资源需求、预期产出。",
+        "memoryFocus": ["profile"]
+      },
+      {
+        "id": "support-needed",
+        "title": "6. 需协调事项",
+        "description": "需要管理层或跨部门支持的事项",
+        "required": false,
+        "prompt": "列出需要协调或决策的事项，明确需要的支持类型和预期效果。",
+        "memoryFocus": ["project"]
+      }
+    ],
+    "appendix": "汇报材料应简洁有力，每页只说一件事。多用数据，少用文字。结论先行，建议具体。"
+  },
+  "memoryConfig": {
+    "priority": ["style", "project", "profile"],
+    "requiredStyleHabits": ["数据图表", "SWOT分析"],
+    "projectContextKeys": ["decisions", "targetUsers"]
+  },
+  "tags": ["汇报", "周报", "月报", "项目汇报"],
+  "isBuiltIn": true
+}

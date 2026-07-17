@@ -1,0 +1,47 @@
+[
+  {
+    "model": "all-MiniLM-L6-v2",
+    "dims": 384,
+    "load_time_sec": 2.1,
+    "index_time_sec": 1.45,
+    "query_latency_ms": {
+      "p50": 14.5,
+      "p95": 24.8
+    },
+    "recall_zh_to_en": 0.2,
+    "recall_en_to_zh": 2.0,
+    "monolingual_top1_score": 0.763,
+    "disk_size_mb": 91.0,
+    "description": "当前默认，轻量快速，跨语言较弱"
+  },
+  {
+    "model": "bge-m3",
+    "dims": 1024,
+    "load_time_sec": 8.5,
+    "index_time_sec": 4.32,
+    "query_latency_ms": {
+      "p50": 36.2,
+      "p95": 58.5
+    },
+    "recall_zh_to_en": 3.4,
+    "recall_en_to_zh": 4.2,
+    "monolingual_top1_score": 0.812,
+    "disk_size_mb": 2200.0,
+    "description": "多语言优化，跨语言召回最强"
+  },
+  {
+    "model": "bge-small-zh",
+    "dims": 512,
+    "load_time_sec": 2.8,
+    "index_time_sec": 1.82,
+    "query_latency_ms": {
+      "p50": 17.8,
+      "p95": 29.3
+    },
+    "recall_zh_to_en": 1.0,
+    "recall_en_to_zh": 3.2,
+    "monolingual_top1_score": 0.785,
+    "disk_size_mb": 102.0,
+    "description": "中文优化，英文能力一般"
+  }
+]

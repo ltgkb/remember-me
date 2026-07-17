@@ -1,0 +1,85 @@
+{
+  "id": "market-research",
+  "name": "市场调研报告模板",
+  "description": "适用于竞品分析、用户调研、行业研究等场景",
+  "category": "research",
+  "version": "1.0.0",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z",
+  "meta": {
+    "targetAudience": "产品团队、管理层",
+    "typicalLength": "10-30 页",
+    "language": "中文",
+    "difficulty": "标准"
+  },
+  "structure": {
+    "preamble": "请撰写一份系统的市场调研报告。数据驱动、结论清晰、建议可执行。",
+    "sections": [
+      {
+        "id": "overview",
+        "title": "1. 调研概述",
+        "description": "调研目的、方法、范围、样本说明",
+        "required": true,
+        "prompt": "说明本次调研的背景目的、采用的调研方法（问卷/访谈/数据分析等）、样本规模和特征、时间范围。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "market-landscape",
+        "title": "2. 市场现状",
+        "description": "市场规模、增长趋势、政策环境",
+        "required": true,
+        "prompt": "分析目标市场的整体规模、增长率、发展阶段、政策环境和关键趋势。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "user-insights",
+        "title": "3. 用户洞察",
+        "description": "用户画像、需求分析、行为数据",
+        "required": true,
+        "prompt": "呈现用户调研的核心发现：用户画像、痛点排序、需求优先级、使用场景、满意度分析。",
+        "memoryFocus": ["project", "profile"]
+      },
+      {
+        "id": "competitor-analysis",
+        "title": "4. 竞品分析",
+        "description": "竞品功能、定位、优劣势对比",
+        "required": true,
+        "prompt": "对比分析主要竞品：产品定位、核心功能、优劣势、用户评价、市场份额。使用矩阵或表格呈现。引用项目已定义的竞品。",
+        "memoryFocus": ["project"],
+        "checklist": ["引用项目已定义的竞品", "对比维度一致"]
+      },
+      {
+        "id": "swot",
+        "title": "5. SWOT 分析",
+        "description": "优势、劣势、机会、威胁",
+        "required": false,
+        "prompt": "基于调研结果，进行 SWOT 分析。每个维度至少列出 3 条，并给出证据支撑。",
+        "memoryFocus": ["project"]
+      },
+      {
+        "id": "findings",
+        "title": "6. 关键发现",
+        "description": "核心结论和数据洞察",
+        "required": true,
+        "prompt": "总结 3-5 条最重要的发现，每条应有数据支撑。使用「发现 → 证据 → 启示」的结构。",
+        "memoryFocus": ["style"]
+      },
+      {
+        "id": "recommendations",
+        "title": "7. 策略建议",
+        "description": "基于调研结论的可执行建议",
+        "required": true,
+        "prompt": "提出 3-5 条具体、可执行的策略建议。每条建议应包含：行动项、预期效果、优先级、所需资源。",
+        "memoryFocus": ["profile", "project"]
+      }
+    ],
+    "appendix": "报告应数据可信、结论明确、建议落地。重要发现需有原始数据或引用来源支撑。"
+  },
+  "memoryConfig": {
+    "priority": ["project", "style", "profile"],
+    "requiredStyleHabits": ["竞品对比", "数据图表"],
+    "projectContextKeys": ["competitors", "targetUsers", "terminology"]
+  },
+  "tags": ["调研", "市场", "竞品", "用户研究"],
+  "isBuiltIn": true
+}

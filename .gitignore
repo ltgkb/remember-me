@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / VS Code extension
+node_modules/
+out/
+out-test/
+*.vsix
+
+# Runtime data & logs
+packages/memory-engine/data/
+packages/memory-engine/server.log
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode-test/
