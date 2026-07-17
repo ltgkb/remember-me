@@ -31,6 +31,12 @@
 
 ### 修复
 - **Windows 目录删除 EPERM 问题**：`JsonStorage.delete()` 此前使用 `fs.unlinkSync` 删除目录会在 Windows 下抛 `EPERM` 并残留空子目录；现改为判断路径类型，目录使用 `fs.rmSync({ recursive: true, force: true })` 递归删除（Node < 14.14 降级 `fs.rmdirSync`），文件保持 `fs.unlinkSync`。
+- **语义栈降级失效（2026-07-18）**：ChromaDB 初始化失败后 `SharedSystemClient` 注册表残留导致后续请求 `KeyError` 穿透 HTTP 处理器、连接被重置（RemoteDisconnected）。现 `vector_index._ensure_initialized()` 对 `PersistentClient` / `SentenceTransformer` 全异常兜底为 `SemanticSearchError` 并清理注册表，`server.get_vector_index()` 兜底返回 503 + 友好回退提示，预加载线程不再误报 `semantic_ready`。
+- **非 UTF-8 请求体崩溃（2026-07-18）**：`_read_json_body()` 捕获 `UnicodeDecodeError`，返回 400 而非连接重置。
+
+### 变更（2026-07-18 环境统一）
+- `pyproject.toml` `requires-python` 钉定为 `>=3.11,<3.14`，开发环境统一至 CPython 3.12；CI Python 矩阵覆盖 3.12 + 3.14（3.14 为金丝雀腿，语义栈条件化）。
+- 语义索引初始化末尾增加预热，首次语义查询延迟从 ~556ms 降至 <200ms（实测 83.5ms）。
 
 ### 测试
 - TypeScript 测试从 320 增至 **333 通过**（0 失败）：新增 `semanticSearch`（4 例）、`buildSemanticIndex`（2 例）、`SearchSettingsManager`（5 例）、目录递归删除（2 例）。
