@@ -117,7 +117,6 @@ class InfoExtractor:
             confidence = self.calculate_confidence(match, text)
             raw = match.group(0)
             term = match.group(1).strip()
-            definition = match.group(2).strip()
             # 过滤常见标记词误匹配（如 TODO 的后缀 ODO）
             if term.upper() in ("TODO", "FIXME", "HACK", "NOTE", "BUG", "XXX", "ODO", "TBD"):
                 continue

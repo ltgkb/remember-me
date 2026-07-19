@@ -10,11 +10,10 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
-from .cli import backup_list_cmd, search_cmd
-from .extractor import ExtractedInfo, InfoExtractor
+from .extractor import InfoExtractor
 from .vector_index import GLOBAL_PROJECT, SemanticSearchError, VectorIndex
 
 
@@ -45,12 +44,12 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 cls._vector_index = VectorIndex(preload=True)
             except SemanticSearchError as exc:
                 sys.stderr.write(f"[semantic] 向量索引不可用: {exc}\n")
-                cls._vector_index = None  # type: ignore[assignment]
+                cls._vector_index = None
             except Exception as exc:  # noqa: BLE001 - A1-修复: 任意语义栈故障都降级为 503
                 sys.stderr.write(
                     f"[semantic] 向量索引初始化异常 ({type(exc).__name__}): {exc}\n"
                 )
-                cls._vector_index = None  # type: ignore[assignment]
+                cls._vector_index = None
         return cls._vector_index
 
     # ------------------------------------------------------------------
@@ -649,7 +648,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 }
             )
 
-        backups.sort(key=lambda b: b["timestamp"], reverse=True)  # type: ignore[arg-type]
+        backups.sort(key=lambda b: cast(float, b["timestamp"]), reverse=True)
 
         self._send_json(
             200,

@@ -32,12 +32,27 @@ dependencies = [
 remember-me-extract = "memory_engine.cli:extract_cmd"
 remember-me-search = "memory_engine.cli:search_cmd"
 remember-me-backup-list = "memory_engine.cli:backup_list_cmd"
+remember-me-crypto = "memory_engine.cli:crypto_selftest_cmd"
 
 [project.optional-dependencies]
 # 精简安装：仅 CLI 提取与关键词搜索，不含语义搜索重量级依赖
 minimal = []
-dev = ["pytest", "mypy", "ruff"]
+dev = ["pytest", "pytest-cov", "mypy", "ruff"]
 benchmark = []  # sentence-transformers 已含于主依赖；语义搜索基准测试分组
+# Phase 4.2 云端同步：本地加密层 + 同步协议 + 云端适配器（路线图 §2.3）
+# 开源版（本地 JSON）用户零新增依赖；本轮（4.2.1）实际使用
+# cryptography / argon2-cffi / keyring / mnemonic 四项，
+# httpx / boto3 / tenacity / PyJWT 为 4.2.2 / 4.2.3 预留声明
+sync = [
+    "cryptography>=42.0",
+    "argon2-cffi>=23.1",
+    "keyring>=25.0",
+    "mnemonic>=0.21",
+    "httpx>=0.27",
+    "boto3>=1.34",
+    "tenacity>=8.2",
+    "PyJWT>=2.8",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -46,11 +61,14 @@ where = ["src"]
 "" = "src"
 
 [tool.mypy]
-python_version = "3.9"
+# 2026-07-20：由 3.9 校正为 3.12 — requires-python 已钉 >=3.11（原 3.9 属配置滞后）；
+# 进一步钉 3.12 而非 3.11：venv 统一 CPython 3.12.13、CI 矩阵 3.12/3.14，
+# 且 chromadb → numpy 类型存根使用 3.12-only 语法（PEP 695），3.11 目标无法解析
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py312"

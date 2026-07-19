@@ -5,6 +5,38 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.4.0-alpha] - 未发布
+
+### 新增（Phase 4.2.1 本地加密层 · 首轮冲刺，2026-07-20）
+
+- **`crypto` 加密包**（`memory_engine/crypto/`，纯本地、不触网，落地已评审架构 §2）：
+  - `kdf.py`：主密钥派生双路径——Argon2id（64MB 内存硬度 / 3 次遍历）与 PBKDF2-SHA256（100,000 迭代）；`derive_master_key_auto` 派生耗时 >3s 自动降级 PBKDF2 并记日志（`clock` 可注入便于测试）；HKDF 派生 DEK（数据加密）+ MK（manifest HMAC）子密钥，info 域分离。
+  - `cipher.py`：AES-256-GCM 文件级加解密（`encrypt_file` / `decrypt_file`，签名语义与架构 §2.3 示例 100% 对齐）；12 字节随机 IV，密文格式 `IV || ciphertext || tag`；AAD = `filepath:version` 防重放；篡改必抛 `CipherError`，绝不返回部分明文。
+  - `keystore.py`：`KeyStore` 抽象（store/load/delete/exists，delete 幂等）+ `KeyringKeyStore`（Windows Credential Locker / macOS Keychain / libsecret，hex 编码 32B 密钥）+ `FileKeyStore` 降级后端（口令 PBKDF2 保护的加密密钥文件 `~/.remember-me/.sync/keystore.enc`，原子写盘，docstring 明示安全等级差异）；`get_keystore` 工厂按可用性自动选路。
+  - `recovery.py`：BIP39 12 词恢复码 ↔ 128-bit 主密钥双向转换；三层输入校验（词数 / 词表 / 校验位），非法恢复码中文友好报错；大小写与空白归一化。
+  - `errors.py`：`CryptoError` 异常族（`KeyDerivationError` / `CipherError` / `KeyStoreError` / `RecoveryError`）+ `SyncError` 族起点，沿用 `SemanticSearchError` 分层降级惯例。
+- **CLI 自检**：`remember-me-crypto selftest` 串联 KDF 派生 → 加解密 round-trip → KeyStore 存取 → 恢复码重建，逐项打印 PASS/FAIL，全部通过退出码 0；sync 依赖缺失时给出安装引导（懒加载，不影响 base 安装的其他命令）。
+- **依赖**：`pyproject.toml` 新增 `sync` 可选依赖分组（cryptography≥42 / argon2-cffi≥23.1 / keyring≥25 / mnemonic≥0.21 / httpx≥0.27 / boto3≥1.34 / tenacity≥8.2 / PyJWT≥2.8），开源版（本地 JSON）用户零新增依赖。
+
+### 变更
+
+- mypy `python_version` 3.9 → 3.12、ruff `target-version` py39 → py312：原配置滞后于 `requires-python >=3.11` 与统一开发环境 CPython 3.12；且 chromadb → numpy 类型存根为 3.12-only 语法（PEP 695），3.11 目标无法解析。
+- `dev` 依赖分组新增 `pytest-cov`（加密层覆盖率验收需要）。
+
+### 修复
+
+- mypy 3.12 下暴露的 9 处既有潜在问题：`vector_index.py` `__main__` 入口缺 `import json`（真实缺陷）、4 处失效 `type: ignore`、`cli.py`/`server.py` 备份排序键类型（改用 `cast(float, ...)` 替代失效 ignore）。
+- ruff 7 处：未使用导入（`ExtractedInfo`、`backup_list_cmd`、函数级 `json`）与未使用变量（`suffix`、`definition`）。
+
+### 测试
+
+- `tests/crypto/` 新增 **151 例全绿**（连跑多遍无 flaky）：round-trip（含空输入 / 1MB 边界）、篡改检测（1 bit 翻转 / AAD 篡改 / 截断，断言 `InvalidTag` 因果链）、IV 随机性、KDF 双路径确定性与假时钟降级、KeyStore 三后端（内存 fake / 加密文件 / 真实 Credential Locker）、恢复码生成重建与非法输入矩阵。
+- crypto 包覆盖率 **100%**（验收要求 ≥90%）。
+- Windows 实测：主密钥写入/读回 Credential Locker，**跨进程免密恢复逐字节一致**（架构验收标准 4，非交互会话下亦通过）。
+- 回归基线不回退：mypy --strict 0 错误（11 文件）、ruff 0 错误、`test_endpoints.py` 8/8、npm test 333/333、tsc 0 错误。
+
+---
+
 ## [0.3.0] - 2026-07-14
 
 ### 新增

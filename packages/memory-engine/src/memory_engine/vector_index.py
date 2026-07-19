@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import time
@@ -38,9 +39,7 @@ def _reset_chromadb_registry() -> None:
     清理失败不应掩盖原始异常，仅记录日志。
     """
     try:
-        from chromadb.api.shared_system_client import (  # type: ignore[import-untyped]
-            SharedSystemClient,
-        )
+        from chromadb.api.shared_system_client import SharedSystemClient
 
         SharedSystemClient.clear_system_cache()
         logger.debug("已清理 chromadb SharedSystemClient 注册表残留")
@@ -108,15 +107,15 @@ class VectorIndex:
             return
         start = time.perf_counter()
         try:
-            import chromadb  # type: ignore[import-untyped]
-            from chromadb.config import Settings  # type: ignore[import-untyped]
+            import chromadb
+            from chromadb.config import Settings
         except ImportError as exc:  # pragma: no cover - 环境依赖
             raise SemanticSearchError(
                 "语义搜索需要 chromadb，请运行 pip install chromadb"
             ) from exc
 
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
+            from sentence_transformers import SentenceTransformer
         except ImportError as exc:  # pragma: no cover - 环境依赖
             raise SemanticSearchError(
                 "语义搜索需要 sentence-transformers，请运行 "
@@ -349,7 +348,6 @@ def index_all_memories(index: VectorIndex, data_dir: Path | None = None) -> dict
 
     返回每个项目索引的条目数。该函数对运维场景友好，可重复执行。
     """
-    import json
 
     root = data_dir or _default_data_dir()
     stats: dict[str, int] = {}

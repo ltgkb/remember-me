@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import io
 import json
+import logging
 import os
+import shutil
 import sys
+import tempfile
+import time
+import uuid
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, cast
 
-from .extractor import ExtractedInfo, InfoExtractor
+from .extractor import InfoExtractor
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +317,6 @@ def backup_list_cmd(argv: Sequence[str] | None = None) -> None:
 
     # 查找与目标文件同名的备份
     stem = target.stem
-    suffix = target.suffix
     backups: list[dict[str, object]] = []
 
     for entry in backups_dir.iterdir():
@@ -344,7 +349,7 @@ def backup_list_cmd(argv: Sequence[str] | None = None) -> None:
         )
 
     # 按修改时间降序排列
-    backups.sort(key=lambda b: b["timestamp"], reverse=True)  # type: ignore[arg-type]
+    backups.sort(key=lambda b: cast(float, b["timestamp"]), reverse=True)
 
     print(json.dumps(
         {
@@ -356,6 +361,144 @@ def backup_list_cmd(argv: Sequence[str] | None = None) -> None:
         ensure_ascii=False,
         indent=2,
     ))
+
+
+def crypto_selftest_cmd(argv: Sequence[str] | None = None) -> None:
+    """本地加密层自检 — 串联 KDF / 加解密 / 密钥托管 / 恢复码冒烟验证。
+
+    用法::
+
+        remember-me-crypto selftest
+
+    逐项打印 PASS/FAIL；全部通过退出码 0，任一失败退出码 1。
+    依赖 ``sync`` 可选分组（``pip install -e .[sync]``），未安装时给出引导提示。
+    """
+    parser = argparse.ArgumentParser(
+        prog="remember-me-crypto",
+        description="Remember Me 本地加密层（Phase 4.2.1）自检工具",
+    )
+    parser.add_argument(
+        "command",
+        choices=["selftest"],
+        help="要执行的子命令（当前仅 selftest）",
+    )
+    parser.parse_args(argv)
+
+    # Windows 控制台默认 cp1252，强制 UTF-8 避免中文输出崩溃
+    # （与 scripts/test_endpoints.py 同款处理 — 2026-07-19 CI 教训）
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+    # 懒加载：sync 属可选依赖分组，缺失时不得影响 base 安装的其他 CLI 命令
+    try:
+        from .crypto.cipher import decrypt_file, encrypt_file
+        from .crypto.errors import CryptoError
+        from .crypto.kdf import derive_master_key, derive_subkeys, generate_salt
+        from .crypto.keystore import FileKeyStore, KeyringKeyStore, KeyStore
+        from .crypto.recovery import from_recovery_code, generate_recovery
+    except ImportError as exc:
+        print(f"错误: 缺少 sync 依赖 — {exc}", file=sys.stderr)
+        print("请运行: pip install -e .[sync]", file=sys.stderr)
+        sys.exit(2)
+
+    results: list[tuple[str, bool, str]] = []
+
+    def record(name: str, ok: bool, note: str = "") -> None:
+        results.append((name, ok, note))
+        status = "PASS" if ok else "FAIL"
+        suffix = f" — {note}" if note else ""
+        print(f"[{status}] {name}{suffix}")
+
+    # 1. KDF 双路径派生 + HKDF 子密钥分离
+    try:
+        salt = generate_salt()
+        start = time.perf_counter()
+        key_argon = derive_master_key("remember-me-selftest", salt, method="argon2id")
+        argon_ms = (time.perf_counter() - start) * 1000
+        key_pbkdf2 = derive_master_key("remember-me-selftest", salt, method="pbkdf2")
+        subkeys = derive_subkeys(key_argon)
+        ok = (
+            len(key_argon) == 32
+            and len(key_pbkdf2) == 32
+            and key_argon != key_pbkdf2
+            and len(subkeys.dek) == 32
+            and len(subkeys.mk) == 32
+            and subkeys.dek != subkeys.mk
+        )
+        record("KDF 双路径派生 + 子密钥分离", ok, f"argon2id 耗时 {argon_ms:.1f}ms")
+    except Exception as exc:  # noqa: BLE001 - 自检须继续后续项
+        record("KDF 双路径派生 + 子密钥分离", False, f"{type(exc).__name__}: {exc}")
+
+    # 2. AES-256-GCM round-trip + 篡改检测（独立随机密钥，与步骤 1 解耦）
+    try:
+        dek = os.urandom(32)
+        plaintext = os.urandom(1024)
+        ciphertext = encrypt_file(plaintext, dek, "selftest/profile.json", 1)
+        ok = decrypt_file(ciphertext, dek, "selftest/profile.json", 1) == plaintext
+        tampered = bytearray(ciphertext)
+        tampered[16] ^= 0x01
+        # 故意触发的篡改会走 cipher 的 WARNING 日志，自检期间临时静默以免误导用户
+        cipher_logger = logging.getLogger("memory_engine.crypto.cipher")
+        prev_level = cipher_logger.level
+        cipher_logger.setLevel(logging.CRITICAL + 1)
+        try:
+            decrypt_file(bytes(tampered), dek, "selftest/profile.json", 1)
+            ok = False
+            note = "篡改未被检测！"
+        except CryptoError:
+            note = "round-trip 一致，篡改已正确拒绝"
+        finally:
+            cipher_logger.setLevel(prev_level)
+        record("AES-256-GCM round-trip + 篡改检测", ok, note)
+    except Exception as exc:  # noqa: BLE001
+        record("AES-256-GCM round-trip + 篡改检测", False, f"{type(exc).__name__}: {exc}")
+
+    # 3. KeyStore 存取（优先系统密钥环，不可用时降级加密密钥文件于临时目录）
+    tmpdir: str | None = None
+    try:
+        store: KeyStore
+        if KeyringKeyStore.is_available():
+            store = KeyringKeyStore()
+            backend = "系统密钥环"
+        else:
+            tmpdir = tempfile.mkdtemp(prefix="remember-me-selftest-")
+            store = FileKeyStore(passphrase="selftest-passphrase", data_dir=Path(tmpdir))
+            backend = "降级加密密钥文件（keyring 不可用）"
+        key_id = f"selftest-{uuid.uuid4().hex[:8]}"
+        probe = os.urandom(32)
+        try:
+            store.store(key_id, probe)
+            ok = store.load(key_id) == probe and store.exists(key_id)
+        finally:
+            store.delete(key_id)
+        ok = ok and not store.exists(key_id)
+        record("KeyStore 存取", ok, backend)
+    except Exception as exc:  # noqa: BLE001
+        record("KeyStore 存取", False, f"{type(exc).__name__}: {exc}")
+    finally:
+        if tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    # 4. BIP39 恢复码生成/重建 + 非法输入拒绝
+    try:
+        master_key, words = generate_recovery()
+        ok = len(words) == 12 and from_recovery_code(words) == master_key
+        try:
+            from_recovery_code(["abandon"] * 11)
+            ok = False
+            note = "非法恢复码未被拒绝！"
+        except CryptoError:
+            note = "重建逐字节一致，非法输入已拒绝"
+        record("BIP39 恢复码生成/重建", ok, note)
+    except Exception as exc:  # noqa: BLE001
+        record("BIP39 恢复码生成/重建", False, f"{type(exc).__name__}: {exc}")
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    print(f"\n自检完成: {passed}/{len(results)} 项通过")
+    if passed != len(results):
+        sys.exit(1)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
