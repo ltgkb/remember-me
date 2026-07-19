@@ -102,13 +102,17 @@
 |------|------|------|
 | [29700232266](https://github.com/ltgkb/remember-me/actions/runs/29700232266) | `119c44e`（feat crypto 主提交） | ✅ **8/8 全绿**（Node 18/20 × ubuntu/windows + Python 3.12/3.14 × ubuntu/windows） |
 | [29700467200](https://github.com/ltgkb/remember-me/actions/runs/29700467200) | `becf80e`（CI 补丁：Python 腿接入 crypto pytest） | ✅ **8/8 全绿**；3.12 腿 crypto pytest 步骤强制执行即 151 例在 CI 实跑通过；3.14 金丝雀腿按条件化策略执行（匿名 API 无法读日志，逐腿逐步骤明细标记为未核实） |
+| [29700677339](https://github.com/ltgkb/remember-me/actions/runs/29700677339) | `6b6c9f3`（docs 回写） | ⚠️→✅ attempt 1：**7/8**，Node 18 windows 腿 `SearchIndex Persistence › load() 成功恢复索引` 连续两次（含自动重试）`false !== true`；attempt 2（WebBridge 手动 Re-run failed jobs）：**success** |
 
 **CI 缺口修复记录**：主提交后发现 CI Python 腿只跑 `test_endpoints.py`、不含 pytest，`tests/crypto/` 151 例未纳入 CI。以 `becf80e` 补丁修复：新增 sync 子集安装步（`--only-binary :all:` + continue-on-error，沿用语义栈金丝雀先例）+ 可用性探针 + 条件化 pytest 步骤（3.12 必跑必绿，3.14 缺 wheel 时跳过并告警）。计划风险表「3.14 缺 keyring/argon2 轮子」一项至此有正式处置通道。
 
+**已知 flaky（新登记，P1 下轮修复）**：`packages/vscode-extension/src/test/suite/searchIndexPersistence.test.ts`「load() 成功恢复索引」。`load()` 的过期判定比较「源文件 mtime vs 索引 updatedAt」，Windows runner 上 mtime/ISO 毫秒精度边界可误判过期 → `loaded=false`。与 07-19 `ProfileManager` 时间 flaky（`7c6bd3b` 已修）同类，属插件侧既有潜在缺陷，与本轮改动无关（触发腿为 docs-only 提交，同代码前两轮运行该腿全绿；本地 Node 24 333/333 通过；attempt 2 复绿）。建议下轮参照 `7c6bd3b` 范式加固：`save()` 的 `updatedAt` 取「不早于最晚源文件 mtime」或比较时加 ≥1ms 容差，并为该用例补 3 次连跑。**修复前提示**：main 上任何提交均有概率在该腿掷骰失败，重跑即可恢复。
+
 ## 八、下轮建议
 
-1. D2 宣发 + D3 手动验证（人工窗口，D3 已连续顺延两轮，建议优先）；
-2. Phase 4.2.1 第二轮冲刺候选：manifest HMAC（MK 子密钥已就位）与 `.sync/` 目录约定落地、keystore 与 KDF/恢复码的首次绑定流程；或按路线图提前启动 4.2.2（Lamport 时钟 / chunker / 离线队列）——4.2.1 窗口尚余 11 天，裕度充足。
+1. **P1 修复 `searchIndexPersistence` flaky**（§七.五 已登记：Windows 时间精度边界误判索引过期，参照 `7c6bd3b` 单调性范式加固）；
+2. D2 宣发 + D3 手动验证（人工窗口，D3 已连续顺延两轮，建议优先）；
+3. Phase 4.2.1 第二轮冲刺候选：manifest HMAC（MK 子密钥已就位）与 `.sync/` 目录约定落地、keystore 与 KDF/恢复码的首次绑定流程；或按路线图提前启动 4.2.2（Lamport 时钟 / chunker / 离线队列）——4.2.1 窗口尚余 11 天，裕度充足。
 
 ---
 
