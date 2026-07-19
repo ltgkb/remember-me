@@ -26,8 +26,8 @@ Remember Me v0.3.0 来了 —— 这次不只是记住，而是真正懂你 👇
 产品经理、运营、设计师、学生、创业者……
 **不懂代码，也能让 AI 彻底记住你。**
 
-🔗 GitHub: [https://github.com/your-org/remember-me](https://github.com/your-org/remember-me)  
-📖 文档: [https://remember-me.dev/docs](https://remember-me.dev/docs)
+🔗 GitHub: [https://github.com/ltgkb/remember-me](https://github.com/ltgkb/remember-me)  
+📖 文档: [https://github.com/ltgkb/remember-me/tree/main/docs](https://github.com/ltgkb/remember-me/tree/main/docs)
 
 #AI #VSCode #生产力工具 #开源 #插件推荐 #效率神器
 
@@ -73,7 +73,7 @@ Remember Me v0.3.0 发布 🎉
 
 非技术用户终于也能拥有"有记忆的 AI"了。
 
-👉 [GitHub](https://github.com/your-org/remember-me) | [📖 文档](https://remember-me.dev/docs)
+👉 [GitHub](https://github.com/ltgkb/remember-me) | [📖 文档](https://github.com/ltgkb/remember-me/tree/main/docs)
 
 #AI #VSCode #生产力工具 #开源
 
@@ -133,8 +133,8 @@ Built for PMs, operators, designers, students, founders — anyone who wants AI 
 
 No coding required. Just install and teach it once.
 
-🔗 GitHub: https://github.com/your-org/remember-me  
-📖 Docs: https://remember-me.dev/docs
+🔗 GitHub: https://github.com/ltgkb/remember-me  
+📖 Docs: https://github.com/ltgkb/remember-me/tree/main/docs
 
 #AI #VSCode #Productivity #OpenSource #AITools #VSCodeExtension
 
@@ -155,8 +155,8 @@ What's new:
 
 Built for PMs, operators, designers, students, founders.
 
-🔗 https://github.com/your-org/remember-me  
-📖 https://remember-me.dev/docs
+🔗 https://github.com/ltgkb/remember-me  
+📖 https://github.com/ltgkb/remember-me/tree/main/docs
 
 #AI #VSCode #Productivity #OpenSource
 
@@ -189,8 +189,8 @@ Every AI chat starts from zero. Users repeatedly re-explain their tone, format p
 
 We'd love feedback, especially from folks building AI tools for non-technical audiences.
 
-🔗 https://github.com/your-org/remember-me  
-📖 https://remember-me.dev/docs
+🔗 https://github.com/ltgkb/remember-me  
+📖 https://github.com/ltgkb/remember-me/tree/main/docs
 
 ---
 
@@ -211,9 +211,22 @@ We'd love feedback, especially from folks building AI tools for non-technical au
 
 | 占位符 | 用途 | 替换为实际链接 |
 |--------|------|----------------|
-| `https://github.com/your-org/remember-me` | GitHub 仓库 | 实际仓库地址 |
-| `https://remember-me.dev/docs` | 官方文档 | 实际文档站点 |
+| `https://github.com/ltgkb/remember-me` | GitHub 仓库 | 实际仓库地址 |
+| `https://github.com/ltgkb/remember-me/tree/main/docs` | 官方文档 | 实际文档站点 |
 
 ---
 
 *Generated for Remember Me v0.3.0 launch campaign*
+
+---
+
+## 发布记录
+
+| 日期 | 平台 | 状态 | 链接 |
+|------|------|------|------|
+| 2026-07-19 | GitHub Release v0.3.0 | ✅ 已发布 | https://github.com/ltgkb/remember-me/releases/tag/v0.3.0 |
+| 2026-07-19 | Twitter/X 中文（极简版） | ⏳ 待发布 | — |
+| 2026-07-19 | 即刻（功能亮点版） | ⏳ 待发布 | — |
+| 2026-07-19 | 小红书（场景痛点版） | ⏳ 待发布 | — |
+
+*占位链接已于 2026-07-19 全部替换为实际仓库/文档链接（文档站暂以仓库 docs/ 目录代替）。*
