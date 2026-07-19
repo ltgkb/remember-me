@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """Test memory-engine HTTP endpoints"""
+import sys
 import urllib.request
 import json
 
-BASE = "http://localhost:8765"
+# Windows CI 控制台默认 cp1252，打印中文会 UnicodeEncodeError；强制 UTF-8 输出
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+BASE = "http://127.0.0.1:8765"
 
 def test_health():
     req = urllib.request.Request(f"{BASE}/health", method="GET")

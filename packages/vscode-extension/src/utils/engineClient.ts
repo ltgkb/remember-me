@@ -47,7 +47,7 @@ export class EngineClient {
   private timeoutMs: number;
 
   constructor(port: number = 8765, timeoutMs: number = 3000) {
-    this.baseUrl = `http://localhost:${port}`;
+    this.baseUrl = `http://127.0.0.1:${port}`;
     this.timeoutMs = timeoutMs;
   }
 
