@@ -112,6 +112,41 @@ jobs:
             cat probe.err
           fi
 
+      # crypto 栈（Phase 4.2.1 本地加密层）独立成步：--only-binary 防止 3.14 源码编译；
+      # 3.14 金丝雀腿若缺 keyring/argon2-cffi wheel 则条件跳过 pytest 并告警（既有先例），
+      # 3.12 腿必须安装成功且 pytest 全绿（available=false 时步骤仍执行 → ImportError 使腿变红）。
+      - name: Install crypto stack (sync minimal subset)
+        working-directory: packages/memory-engine
+        shell: bash
+        continue-on-error: true
+        run: |
+          pip install --only-binary :all: "cryptography>=42.0" "argon2-cffi>=23.1" "keyring>=25.0" "mnemonic>=0.21" pytest
+
+      # 探活导入：3.14 上可能装得上但初始化失败；输出 available 标志供条件化 crypto 测试。
+      - name: Probe crypto stack availability
+        id: crypto
+        working-directory: packages/memory-engine
+        shell: bash
+        run: |
+          if python -c "import cryptography, argon2, keyring, mnemonic" 2>crypto-probe.err; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "crypto stack import OK"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Crypto stack unavailable on Python ${{ matrix.python-version }} / ${{ matrix.os }}; crypto tests will be skipped"
+            cat crypto-probe.err
+          fi
+
+      # keyring 在无桌面 CI 环境探测不可用时，KeyringKeyStore 用例按 skipif 自动跳过，
+      # FileKeyStore 降级路径用例照常执行（降级路径是本设计的 CI 必测项）。
+      - name: Run crypto tests (pytest)
+        if: matrix.python-version == '3.12' || steps.crypto.outputs.available == 'true'
+        working-directory: packages/memory-engine
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m pytest tests/crypto/ -q
+
       # 服务器在后台线程预加载 embedding 模型，固定 sleep 3 不可靠：
       # 先轮询 /health 直到响应（服务就绪，60s 超时）；若语义栈可用，再额外等待
       # semantic_ready=true（180s 超时，超时仅告警——端点测试容忍降级 503）。
