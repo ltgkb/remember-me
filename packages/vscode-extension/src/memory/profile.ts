@@ -55,12 +55,18 @@ export class ProfileManager {
     // 先备份
     this.storage.backup(PROFILE_FILENAME);
 
+    // updatedAt 保证严格递增：毫秒级时间戳在快速连续更新时可能相同，
+    // 相同则在上次值基础上 +1ms（CI 快速机器上 ProfileManager 时间断言曾因此 flaky）
+    const nowMs = Date.now();
+    const prevMs = Date.parse(existing.updatedAt);
+    const updatedAtMs = Number.isNaN(prevMs) || nowMs > prevMs ? nowMs : prevMs + 1;
+
     const updated: Profile = {
       ...existing,
       ...updates,
       id: existing.id, // 防止意外覆盖
       createdAt: existing.createdAt, // 防止意外覆盖
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(updatedAtMs).toISOString(),
     };
 
     // 如果更新中包含 identity 或 style，需要浅合并
