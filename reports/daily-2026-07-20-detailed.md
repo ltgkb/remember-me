@@ -145,6 +145,10 @@ def generate_recovery() -> tuple[bytes, list[str]]
 | npm | `npm test`（插件侧，未改码） | **333 passing**（6s） |
 | tsc | `npm run compile` | 0 错误 |
 | selftest | `remember-me-crypto selftest` | 4/4，exit 0 |
+| CI 主提交 | run 29700232266（`119c44e`） | **8/8 全绿** |
+| CI 补丁 | run 29700467200（`becf80e`，Python 腿接入 crypto pytest） | **8/8 全绿**（3.12 腿 pytest 强制实跑通过） |
+
+**CI 缺口修复**：主提交后发现 CI Python 腿只跑 `test_endpoints.py`、`tests/crypto/` 未纳入 → `becf80e` 补丁新增 sync 子集安装步（`--only-binary :all:` + continue-on-error）+ 探针 + 条件化 pytest 步骤（3.12 必跑必绿；3.14 缺 wheel 跳过并告警，沿用语义栈金丝雀先例）。
 
 ## 六、D2 / D3 顺延说明（计划风险表既定策略）
 
@@ -153,10 +157,9 @@ def generate_recovery() -> tuple[bytes, list[str]]
 
 ## 七、下轮候选任务
 
-1. 观察本轮 CI（3.14 金丝雀腿 keyring/argon2 wheel；3.12 腿必须全绿）；
-2. D2 + D3 人工窗口执行；
-3. Phase 4.2.1 二轮冲刺：manifest HMAC（MK 已就位）+ `.sync/` 目录约定 + keystore 与 KDF 路径整合（passphrase → master key → 托管/恢复码首次绑定流程）；
-4. 或按路线图提前启动 4.2.2：`sync/lamport.py` / `sync/chunker.py` / `sync/queue.py`（4.2.1 窗口余 11 天，裕度充足）。
+1. D2 + D3 人工窗口执行（D3 已连续顺延两轮，建议优先）；
+2. Phase 4.2.1 二轮冲刺：manifest HMAC（MK 已就位）+ `.sync/` 目录约定 + keystore 与 KDF 路径整合（passphrase → master key → 托管/恢复码首次绑定流程）；
+3. 或按路线图提前启动 4.2.2：`sync/lamport.py` / `sync/chunker.py` / `sync/queue.py`（4.2.1 窗口余 11 天，裕度充足）。
 
 ---
 

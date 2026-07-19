@@ -84,7 +84,7 @@
 | sync 全量依赖安装受阻 | **未发生**——8 项全部一次装上 |
 | 凌晨自动化会话 Credential Locker 写入失败 | **未发生**——非交互会话下 `WinVaultKeyring` 可用且跨进程免密恢复通过，主路径无需「待人工复验」标记 |
 | Argon2id 64MB 本机过慢 | **未发生**——35.6ms（阈值的 1.2%） |
-| CI Python 3.14 金丝雀腿缺 keyring/argon2 轮子 | 待观察——推送后 CI 为最终判据（3.12 腿必须全绿；3.14 若缺 wheel 走条件跳过并记录） |
+| CI Python 3.14 金丝雀腿缺 keyring/argon2 轮子 | **已闭环**——CI 补丁 `becf80e` 按既定预案落地（条件跳过通道）；两轮运行 8/8 全绿（见 §七.五） |
 | 单轮 6h 做不完 A+B+C | **未发生**——02:00 → 03:15 全部完成（含 D1），D2/D3 按计划既定顺延策略处理 |
 | mypy 3.9 与 sync 存根不兼容 | **已发生并闭环**——见决策记录 1/2 |
 | 宣发平台登录态失效 | 未验证——D2 顺延 |
@@ -95,13 +95,20 @@
 |------|------|----------|
 | D2 社交媒体宣发（≥3 平台） | ⏳ 顺延 | 浏览器登录态（WebBridge）；素材已就绪（`docs/demo/social-media-2026-07-15.md`） |
 | D3 VS Code 三模式搜索手动验证 | ⏳ 待人工 | 人工在 VS Code 界面操作（已连续顺延两轮，建议优先安排） |
-| CI 3.14 金丝雀腿 crypto 行为 | ⏳ 观察中 | 推送后查看 Actions 运行结果 |
+
+## 七.五、CI 运行结论（推送后观察）
+
+| 运行 | 提交 | 结果 |
+|------|------|------|
+| [29700232266](https://github.com/ltgkb/remember-me/actions/runs/29700232266) | `119c44e`（feat crypto 主提交） | ✅ **8/8 全绿**（Node 18/20 × ubuntu/windows + Python 3.12/3.14 × ubuntu/windows） |
+| [29700467200](https://github.com/ltgkb/remember-me/actions/runs/29700467200) | `becf80e`（CI 补丁：Python 腿接入 crypto pytest） | ✅ **8/8 全绿**；3.12 腿 crypto pytest 步骤强制执行即 151 例在 CI 实跑通过；3.14 金丝雀腿按条件化策略执行（匿名 API 无法读日志，逐腿逐步骤明细标记为未核实） |
+
+**CI 缺口修复记录**：主提交后发现 CI Python 腿只跑 `test_endpoints.py`、不含 pytest，`tests/crypto/` 151 例未纳入 CI。以 `becf80e` 补丁修复：新增 sync 子集安装步（`--only-binary :all:` + continue-on-error，沿用语义栈金丝雀先例）+ 可用性探针 + 条件化 pytest 步骤（3.12 必跑必绿，3.14 缺 wheel 时跳过并告警）。计划风险表「3.14 缺 keyring/argon2 轮子」一项至此有正式处置通道。
 
 ## 八、下轮建议
 
-1. 观察本轮推送的 CI 运行（重点 3.14 腿 keyring/argon2-cffi wheel 可用性）；
-2. D2 宣发 + D3 手动验证（人工窗口）；
-3. Phase 4.2.1 第二轮冲刺候选：manifest HMAC（MK 子密钥已就位）与 `.sync/` 目录约定落地；或按路线图提前启动 4.2.2（Lamport 时钟 / chunker / 离线队列）——4.2.1 窗口尚余 11 天，裕度充足。
+1. D2 宣发 + D3 手动验证（人工窗口，D3 已连续顺延两轮，建议优先）；
+2. Phase 4.2.1 第二轮冲刺候选：manifest HMAC（MK 子密钥已就位）与 `.sync/` 目录约定落地、keystore 与 KDF/恢复码的首次绑定流程；或按路线图提前启动 4.2.2（Lamport 时钟 / chunker / 离线队列）——4.2.1 窗口尚余 11 天，裕度充足。
 
 ---
 
