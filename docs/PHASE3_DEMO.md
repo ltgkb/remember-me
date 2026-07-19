@@ -301,6 +301,6 @@ Phase 4：商业化与高级功能
 
 **⭐ Phase 3 已交付，欢迎使用并反馈！**
 
-[提交 Issue](https://github.com/remember-me-team/remember-me/issues) · [参与贡献](docs/CONTRIBUTING.md) · [查看文档](docs/)
+[提交 Issue](https://github.com/ltgkb/remember-me/issues) · [参与贡献](docs/CONTRIBUTING.md) · [查看文档](docs/)
 
 </div>

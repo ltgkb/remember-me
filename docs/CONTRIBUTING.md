@@ -35,7 +35,7 @@
 
 ### 报告 Bug
 
-如果你发现了 Bug，请通过 [GitHub Issues](https://github.com/remember-me-team/remember-me/issues) 提交，并包含以下信息：
+如果你发现了 Bug，请通过 [GitHub Issues](https://github.com/ltgkb/remember-me/issues) 提交，并包含以下信息：
 
 1. **问题描述**：清晰描述 Bug 的表现
 2. **复现步骤**：一步一步说明如何复现
@@ -278,7 +278,7 @@ git commit -m "feat(scope): 描述"
 ### 3. 同步上游
 
 ```bash
-git remote add upstream https://github.com/remember-me-team/remember-me.git
+git remote add upstream https://github.com/ltgkb/remember-me.git
 git fetch upstream
 git rebase upstream/main
 ```
@@ -363,6 +363,21 @@ git push origin feat/your-feature-name
    ```
 7. 提交到 VS Code 扩展市场（如适用）
 
+### 迭代收尾规则（每轮迭代必做）
+
+> 自 2026-07-19 起生效（项目所有者指示）。
+
+每轮迭代完成后，必须将全部变更推送到主远程仓库：
+
+```bash
+git push origin main
+```
+
+- 远程仓库：https://github.com/ltgkb/remember-me （SSH：`git@github.com:ltgkb/remember-me.git`）
+- 推送前确认：工作树干净（`git status`）、本地测试通过、提交信息完整。
+- 推送后确认：GitHub Actions CI 触发并观察至出结果；失败须在当轮或次轮迭代优先修复。
+- 涉及版本发布时，按上方「发布步骤」打 tag 并创建 GitHub Release。
+
 ---
 
 ## 获取帮助
@@ -371,7 +386,7 @@ git push origin feat/your-feature-name
 
 1. 查看本指南和 [README](../README.md)
 2. 查看 [架构文档](ARCHITECTURE.md)
-3. 在 [GitHub Discussions](https://github.com/remember-me-team/remember-me/discussions) 提问
+3. 在 [GitHub Discussions](https://github.com/ltgkb/remember-me/discussions) 提问
 4. 联系维护者团队
 
 再次感谢你的贡献！🧠

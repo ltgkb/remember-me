@@ -61,7 +61,7 @@
 ### 步骤
 
 1. 从以下渠道获取 `.vsix` 文件：
-   - [GitHub Releases](https://github.com/remember-me-team/remember-me/releases)
+   - [GitHub Releases](https://github.com/ltgkb/remember-me/releases)
    - 内部测试群 / 邮件分发
 
 2. 在 VS Code 中打开命令面板：
@@ -97,7 +97,7 @@ code --version
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/remember-me-team/remember-me.git
+git clone https://github.com/ltgkb/remember-me.git
 cd remember-me
 
 # 2. 进入插件目录
@@ -214,7 +214,7 @@ VS Code 底部状态栏应出现 **🧠 Remember Me** 图标。点击图标应�
 如以上步骤无法解决问题，请：
 
 1. 查看 [常见问题](../README.md#-常见问题)
-2. 在 [GitHub Issues](https://github.com/remember-me-team/remember-me/issues) 搜索类似问题
+2. 在 [GitHub Issues](https://github.com/ltgkb/remember-me/issues) 搜索类似问题
 3. 提交新 Issue，附上：
    - VS Code 版本
    - 插件版本

@@ -64,6 +64,6 @@
 - 设置向导（3 分钟问卷）。
 - DeepSeek + Ollama 接入，基础记忆注入。
 
-[0.3.0]: https://github.com/remember-me-team/remember-me/releases/tag/v0.3.0
-[0.2.0]: https://github.com/remember-me-team/remember-me/releases/tag/v0.2.0
-[0.1.0]: https://github.com/remember-me-team/remember-me/releases/tag/v0.1.0
+[0.3.0]: https://github.com/ltgkb/remember-me/releases/tag/v0.3.0
+[0.2.0]: https://github.com/ltgkb/remember-me/releases/tag/v0.2.0
+[0.1.0]: https://github.com/ltgkb/remember-me/releases/tag/v0.1.0
