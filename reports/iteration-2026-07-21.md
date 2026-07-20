@@ -25,7 +25,7 @@
 | D2 社交媒体宣发 | 运营 | P1 | ⏳ 顺延 | 素材就绪待人工窗口（需 WebBridge 登录态，凌晨自动化会话不阻塞主线） |
 | D3 VS Code 三模式搜索手动验证 | 插件 UI | P1 | ⏳ 待人工 | 已连续顺延三轮，建议人工优先安排 |
 | E1 误提交临时文件清理 | `packages/vscode-extension/` | P2 | ✅ 完成 | `git rm` 三文件（全仓检索零引用）；`.gitignore` 追加 `fix-*.js`、`*.ts.new` 防复发 |
-| E2 迭代报告 ×3 + CHANGELOG + 推送 | `reports/` / `CHANGELOG.md` / git | P2 | 🔄 文档完成 | 本报告 + 日报 ×2 + `[0.4.0-alpha]` 章节增补；推送与 CI 观察待主协调代理提交后回填 |
+| E2 迭代报告 ×3 + CHANGELOG + 推送 | `reports/` / `CHANGELOG.md` / git | P2 | ✅ 完成 | 本报告 + 日报 ×2 + `[0.4.0-alpha]` 章节增补；推送 `244943a`，CI 29772390614 8/8 全绿 |
 
 **范围纪律**：4.2.2 提前启动严格限定四个纯本地原语——同步 worker 线程、`server.py` 端点、冲突策略引擎、云端适配器均未触碰（留 4.2.2 正式窗口与 4.2.3）；插件侧唯一改动为 D1 flaky 修复；全程不触网（除 git 推送），符合计划范围约束。
 
@@ -115,13 +115,13 @@
 
 ## 七.五、CI 运行结论（推送后观察）
 
-**提交时间线（本轮）**：待主协调代理提交后回填 commit hash。
+**提交时间线（本轮）**：`0173800`（feat: 4.2.1 收官 + 4.2.2 原语先行，含 E1 三个误提交文件删除）→ `473f635`（fix: D1 searchIndexPersistence flaky 单调性范式）→ `ea8386c`（ci: Python 腿纳入 tests/sync）→ `43574fb`（chore: .gitignore 防复发）→ `244943a`（docs: 报告 ×3 + CHANGELOG + 计划归档）。
 
-**CI 补丁（已完成，随本轮推送后观察）**：`.github/workflows/ci.yml` Python 腿 pytest 步骤由 `tests/crypto/` 扩为 `tests/crypto/ tests/sync/`（沿用 `becf80e` 条件化通道：3.12 必绿、3.14 金丝雀条件跳过；sync 纯本地无新增依赖、预期全腿可跑）；YAML 语法校验通过。
+**CI 补丁（已完成）**：`.github/workflows/ci.yml` Python 腿 pytest 步骤由 `tests/crypto/` 扩为 `tests/crypto/ tests/sync/`（沿用 `becf80e` 条件化通道：3.12 必绿、3.14 金丝雀条件跳过；sync 纯本地无新增依赖）；YAML 语法校验通过。
 
 | 运行 | 提交 | 结果 |
 |------|------|------|
-| 待回填 | 待回填 | 待回填（tests/sync 首次入 CI，重点观察 3.14 金丝雀腿与 windows 腿） |
+| [29772390614](https://github.com/ltgkb/remember-me/actions/runs/29772390614) | `244943a` | **8/8 全绿**——tests/sync 首次入 CI 全腿通过（Python 3.12 win/ubuntu 必绿腿、3.14 金丝雀 win/ubuntu 全绿）；Node 18 windows 腿（原 D1 flaky 腿）修复后首轮即绿，零掷骰 |
 
 **已知观察项（如实记录，非阻塞）**：
 
