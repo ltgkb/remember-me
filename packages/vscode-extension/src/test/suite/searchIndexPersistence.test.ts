@@ -50,6 +50,25 @@ describe('SearchIndex Persistence', () => {
     assert.ok(data.docFreq);
   });
 
+  it('save() 的 updatedAt 不早于最晚源文件 mtime（防毫秒精度边界误判过期）', () => {
+    // 回归测试：Windows CI 上源文件 mtime 带亚毫秒浮点精度，
+    // 若 updatedAt 仅取整数毫秒的当前时间，load() 可能误判索引过期。
+    storage.write({ identity: { role: '产品经理' } }, 'profile.json');
+    const idx = getSearchIndex();
+    idx.rebuild(storage);
+    idx.save(tempDir);
+
+    const indexPath = path.join(tempDir, '.index', 'search-index.json');
+    const data = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+    const updatedAtMs = new Date(data.updatedAt).getTime();
+    const sourceMtimeMs = fs.statSync(path.join(tempDir, 'profile.json')).mtimeMs;
+
+    assert.ok(
+      updatedAtMs >= sourceMtimeMs,
+      `updatedAt(${updatedAtMs}) 应不早于源文件 mtime(${sourceMtimeMs})`
+    );
+  });
+
   // ==================== load() ====================
 
   it('load() 成功恢复索引', () => {

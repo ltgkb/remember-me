@@ -436,9 +436,29 @@ export class SearchIndex {
         docFreqObj[docPath] = freqObj;
       }
 
+      // updatedAt 单调性保证（与 7c6bd3b 对 profile.ts 的修复同款范式）：
+      // load() 以「源文件 mtime > updatedAt」判定索引过期，而 fs 的 mtimeMs
+      // 带亚毫秒浮点精度、toISOString() 只保留整数毫秒。Windows CI 上
+      // 「源文件先写入、save() 后执行」时仍可能出现 mtime(浮点) 微大于
+      // updatedAt(毫秒截断) 的边界，导致 load() 误判过期（测试 flaky）。
+      // 因此 updatedAt 取 max(当前时间, 最晚源文件 mtime 向上取整)，
+      // 保证 updatedAt 不早于任何已索引源文件的实际修改时间。
+      let maxSourceMtimeMs = 0;
+      for (const relativePath of this.discoverIndexableFiles(basePath)) {
+        try {
+          const mtimeMs = fs.statSync(path.join(basePath, relativePath)).mtimeMs;
+          if (mtimeMs > maxSourceMtimeMs) {
+            maxSourceMtimeMs = mtimeMs;
+          }
+        } catch {
+          // 忽略 stat 失败的文件（与 load() 中 existsSync 检查语义一致）
+        }
+      }
+      const updatedAtMs = Math.max(Date.now(), Math.ceil(maxSourceMtimeMs));
+
       const data = {
         version: '1.0.0',
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(updatedAtMs).toISOString(),
         totalDocuments: this.docFreq.size,
         index: indexObj,
         docFreq: docFreqObj,
