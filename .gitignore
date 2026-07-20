@@ -27,3 +27,7 @@ packages/memory-engine/server.log
 .DS_Store
 Thumbs.db
 .vscode-test/
+
+# One-off fix scripts / temp artifacts (防误提交复发)
+fix-*.js
+*.ts.new
