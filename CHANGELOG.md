@@ -35,6 +35,34 @@
 - Windows 实测：主密钥写入/读回 Credential Locker，**跨进程免密恢复逐字节一致**（架构验收标准 4，非交互会话下亦通过）。
 - 回归基线不回退：mypy --strict 0 错误（11 文件）、ruff 0 错误、`test_endpoints.py` 8/8、npm test 333/333、tsc 0 错误。
 
+### 新增（Phase 4.2.1 二轮冲刺收官 + Phase 4.2.2 原语先行，2026-07-21）
+
+- **`.sync/` 目录约定与同步配置基座**（`memory_engine/sync/`，新建包）：统一同步产物落点（`manifest.json` / `manifest.json.sig` / `config.json` / `queue` / `keystore.enc`），`REMEMBER_ME_DATA_DIR` 隔离；`SyncConfig`（deviceId UUID4 / sync.enabled / kdf.method / kdf.salt / lamport）同目录临时文件 + `os.replace` 原子写；`SyncError` 异常族扩展（`SyncConfigError` / `ManifestIntegrityError`）。
+- **首次绑定与解锁流程**（`crypto/bootstrap.py`）：`bootstrap_first_run` / `unlock` / `unlock_with_recovery` 三流程（`BootstrapResult` / `UnlockResult` / `RecoveryUnlockResult`）；method+salt 持久化至 `.sync/config.json` 保证他端可复现；双 key_id 托管（master 32B KDF 主密钥 + recovery 16B 恢复码主密钥）；`unlock` 加 exists() 守卫——错误口令绝不静默重派生覆盖托管（配专测 `test_unlock_wrong_passphrase_never_rederives`）；恢复码仅经返回值出层，绝不落盘/记日志；真子进程跨进程实证仅凭持久化 method+salt+口令重派生主密钥逐字节一致。
+- **manifest HMAC 完整性原语**（`sync/manifest_mac.py`）：签名与清单分离存储（`manifest.json.sig`，HMAC 覆盖磁盘精确字节，免除 JSON 规范化跨端不一致）；`hmac.compare_digest` 常量时间比较；损坏自动备份至 `.sync/corrupted-{ts}/` 并重建空清单；全量冲突重建接口 4.2.2 占位。
+- **Lamport 时钟**（`sync/lamport.py`）：`LamportClock`（tick/merge 即落盘 `config.lamport`，防重启回退）；`(lamport, deviceId)` 字典序全序 `compare` / `happens_before`（架构 §3.2，平局 deviceId 决胜）。
+- **FileVersion 清单**（`sync/manifest.py`）：`FileVersion`（frozen，字段与架构 §3.2 逐项对齐，camelCase 与 TS 接口逐字一致）；读写全程 HMAC 保护、验签失败走损坏处置；`diff` 四分（新增 / 变更 / 冲突 / 伪冲突）；`scan_sync_files` 枚举架构 §2.2 四类文件；清单模式 v1 canonical 序列化；contentHash 取整文件明文 SHA-256（GCM 随机 IV 使密文哈希跨端不可比）。
+- **4KB 块级哈希树**（`sync/chunker.py`）：逐块 SHA-256 + Merkle 式根哈希 + 同趟 flat content_hash（与 `FileVersion.contentHash` 三方同源）；`changed_chunks` 变更块索引，供增量上传只传变更块；流式单趟读取；实测 1MB 文件尾部改 100 字节 → 变更块 1/256 ≈ 0.4%（验收线 <20%）。
+- **离线队列**（`sync/queue.py`）：`queue.jsonl` 单文件 JSONL 追加（`QueuedChange` camelCase 对齐 FileVersion）；enqueue / peek / replay（只读快照）/ 两段式 clear（重放中途强杀零丢失）/ depth；500 条上限同路径合并保最新 + 告警不崩溃；进程内锁保证追加原子性（8 线程×25 并发实证零撕裂）；损坏行跳过 + 告警。
+
+### 变更（2026-07-21）
+
+- CI：Python 腿 pytest 步骤由 `tests/crypto/` 扩为 `tests/crypto/ tests/sync/`（沿用 `becf80e` 条件化通道：3.12 必绿、3.14 金丝雀条件跳过；sync 纯本地无新增依赖）。
+- `.gitignore` 追加防复发规则：`fix-*.js`、`*.ts.new`。
+
+### 修复（2026-07-21）
+
+- **插件 `searchIndexPersistence` flaky（CI 掷骰失败病灶）**：`searchIndex.ts` `save()` 的 `updatedAt` 用 `toISOString()`（整数毫秒截断）与 `load()` 的 `mtimeMs`（亚毫秒浮点）严格比较，Windows 精度边界误判索引过期；现 `save()` 的 `updatedAt` 取 `max(Date.now(), Math.ceil(最晚源文件 mtimeMs))`（单调性范式，同 `7c6bd3b`），`load()` 严格比较不动、对真实更新零检测损失；新增 1 条回归断言（只增强未放宽）。
+- **误提交临时文件清理**：移除 `packages/vscode-extension/fix-ext2.js`、`src/extension.ts.new`、`src/fix-ext2.js`（全仓检索零引用）。
+
+### 测试（2026-07-21）
+
+- `tests/sync/` 新增 **238 例全绿**（test_paths 8 / test_config 33 / test_bootstrap 21 / test_manifest_mac 29 / test_lamport 26 / test_manifest 64 / test_chunker 23 / test_queue 34）；`pytest tests/sync tests/crypto` 合计 **389/389**（crypto 151 既有零回退）。
+- sync + crypto 联合覆盖率 **100%**（1283 语句 0 遗漏；验收要求 sync ≥85%）。
+- 关键实证：首启 → 解锁 → 恢复码重建主密钥逐字节一致（真子进程跨进程重派生）；50 文件 FIFO 重放无丢失无重复；8 线程×25 并发追加零撕裂；1MB 尾部改 100B → 变更块 1/256 ≈ 0.4%。
+- 插件侧 **334/334 ×3 连绿**（基线 333 + D1 回归断言 1）；tsc 0 错误。
+- 回归基线不回退：mypy --strict 0 错误（21 文件）、ruff 0 错误、`test_endpoints.py` 8/8、`remember-me-crypto selftest` 4/4 PASS。
+
 ---
 
 ## [0.3.0] - 2026-07-14
