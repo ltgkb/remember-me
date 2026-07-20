@@ -139,13 +139,14 @@ jobs:
 
       # keyring 在无桌面 CI 环境探测不可用时，KeyringKeyStore 用例按 skipif 自动跳过，
       # FileKeyStore 降级路径用例照常执行（降级路径是本设计的 CI 必测项）。
-      - name: Run crypto tests (pytest)
+      # tests/sync/（Phase 4.2.1 二轮 + 4.2.2 本地原语）与 crypto 同栈、同条件化通道，无新增依赖。
+      - name: Run crypto+sync tests (pytest)
         if: matrix.python-version == '3.12' || steps.crypto.outputs.available == 'true'
         working-directory: packages/memory-engine
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
-        run: python -m pytest tests/crypto/ -q
+        run: python -m pytest tests/crypto/ tests/sync/ -q
 
       # 服务器在后台线程预加载 embedding 模型，固定 sleep 3 不可靠：
       # 先轮询 /health 直到响应（服务就绪，60s 超时）；若语义栈可用，再额外等待
