@@ -371,9 +371,9 @@ export class SettingsPanelWebview {
   <p class="subtitle">让 AI 记住你的风格、偏好和项目上下文</p>
 
   <nav class="tabs">
-    <div class="tab active" data-tab="welcome" onclick="switchTab('welcome')">欢迎</div>
-    <div class="tab" data-tab="profile" onclick="switchTab('profile')">个人画像</div>
-    <div class="tab" data-tab="project" onclick="switchTab('project')">项目设置</div>
+    <div class="tab active" data-tab="welcome" data-tab-target="welcome">欢迎</div>
+    <div class="tab" data-tab="profile" data-tab-target="profile">个人画像</div>
+    <div class="tab" data-tab="project" data-tab-target="project">项目设置</div>
   </nav>
 
   <!-- ═════ 欢迎页 ═════ -->
@@ -388,7 +388,7 @@ export class SettingsPanelWebview {
       </ul>
       <p style="margin-top: 12px;">设置完成后，每次与 AI 对话都会自动注入你的记忆。</p>
     </div>
-    <button onclick="switchTab('profile')">开始设置向导 →</button>
+    <button data-tab-target="profile">开始设置向导 →</button>
   </section>
 
   <!-- ═════ 个人画像 ═════ -->
@@ -397,7 +397,7 @@ export class SettingsPanelWebview {
     <h2>你是谁？</h2>
     <p class="subtitle">让 AI 了解你的背景</p>
 
-    <form id="profileForm" onsubmit="event.preventDefault(); saveProfile();">
+    <form id="profileForm">
       <div class="form-group">
         <label for="role">身份角色</label>
         <select id="role" required>
@@ -506,7 +506,7 @@ export class SettingsPanelWebview {
 
       <div class="step-nav">
         <button type="submit">保存个人画像</button>
-        <button type="button" class="secondary" onclick="switchTab('project')">跳过，去设置项目 →</button>
+        <button type="button" class="secondary" data-tab-target="project">跳过，去设置项目 →</button>
       </div>
 
       <div id="profileMsg" class="msg"></div>
@@ -519,7 +519,7 @@ export class SettingsPanelWebview {
     <h2>你在做什么项目？</h2>
     <p class="subtitle">让 AI 了解你的工作上下文</p>
 
-    <form id="projectForm" onsubmit="event.preventDefault(); saveProject();">
+    <form id="projectForm">
       <div class="form-group">
         <label for="projectName">项目名称 *</label>
         <input type="text" id="projectName" placeholder="例如：TeamFlow" required>
@@ -542,7 +542,7 @@ export class SettingsPanelWebview {
 
       <div class="step-nav">
         <button type="submit">创建项目</button>
-        <button type="button" class="secondary" onclick="switchTab('welcome')">← 返回欢迎</button>
+        <button type="button" class="secondary" data-tab-target="welcome">← 返回欢迎</button>
       </div>
 
       <div id="projectMsg" class="msg"></div>
@@ -601,6 +601,18 @@ export class SettingsPanelWebview {
       showMsg('projectMsg', '');
       vscode.postMessage({ command: 'saveProject', data: getProjectData() });
     }
+
+    document.querySelectorAll('[data-tab-target]').forEach(element => {
+      element.addEventListener('click', () => switchTab(element.dataset.tabTarget));
+    });
+    document.getElementById('profileForm').addEventListener('submit', event => {
+      event.preventDefault();
+      saveProfile();
+    });
+    document.getElementById('projectForm').addEventListener('submit', event => {
+      event.preventDefault();
+      saveProject();
+    });
 
     // 消息显示
     function showMsg(id, text, isError) {

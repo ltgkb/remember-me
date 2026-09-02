@@ -68,11 +68,20 @@ export class OnboardingWebview extends BaseWebview {
         function finish() {
           postMessage('finish', collectStepData());
         }
-        function toggleCheckbox(el) {
-          el.classList.toggle('checked');
-          const cb = el.querySelector('input[type="checkbox"]');
-          if (cb) { cb.checked = !cb.checked; }
-        }
+        document.querySelectorAll('[data-action]').forEach(element => {
+          element.addEventListener('click', () => {
+            const action = element.dataset.action;
+            if (action === 'next-step') nextStep();
+            if (action === 'prev-step') prevStep();
+            if (action === 'finish') finish();
+            if (action === 'close') postMessage('close');
+          });
+        });
+        document.querySelectorAll('.js-toggle-checkbox').forEach(checkbox => {
+          checkbox.addEventListener('change', () => {
+            checkbox.parentElement.classList.toggle('checked', checkbox.checked);
+          });
+        });
       </script>
     `;
 
@@ -132,7 +141,7 @@ export class OnboardingWebview extends BaseWebview {
         </div>
       </div>
       <div class="btn-group">
-        <button class="btn btn-primary" onclick="nextStep()">下一步 →</button>
+        <button class="btn btn-primary" data-action="next-step">下一步 →</button>
       </div>
     `;
   }
@@ -156,15 +165,15 @@ export class OnboardingWebview extends BaseWebview {
         <div class="checkbox-group" id="doc-types">
           ${types.map(t => `
             <label class="checkbox-item">
-              <input type="checkbox" value="${t.id}" onchange="this.parentElement.classList.toggle('checked', this.checked)">
+              <input class="js-toggle-checkbox" type="checkbox" value="${t.id}">
               <span>${t.icon} ${t.label}</span>
             </label>
           `).join('')}
         </div>
       </div>
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="prevStep()">← 上一步</button>
-        <button class="btn btn-primary" onclick="nextStep()">下一步 →</button>
+        <button class="btn btn-secondary" data-action="prev-step">← 上一步</button>
+        <button class="btn btn-primary" data-action="next-step">下一步 →</button>
       </div>
     `;
   }
@@ -212,8 +221,8 @@ export class OnboardingWebview extends BaseWebview {
         </div>
       </div>
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="prevStep()">← 上一步</button>
-        <button class="btn btn-primary" onclick="nextStep()">下一步 →</button>
+        <button class="btn btn-secondary" data-action="prev-step">← 上一步</button>
+        <button class="btn btn-primary" data-action="next-step">下一步 →</button>
       </div>
     `;
   }
@@ -239,15 +248,15 @@ export class OnboardingWebview extends BaseWebview {
         <div class="checkbox-group" id="habits">
           ${habits.map(h => `
             <label class="checkbox-item">
-              <input type="checkbox" value="${h.id}" onchange="this.parentElement.classList.toggle('checked', this.checked)">
+              <input class="js-toggle-checkbox" type="checkbox" value="${h.id}">
               <span>${h.label}</span>
             </label>
           `).join('')}
         </div>
       </div>
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="prevStep()">← 上一步</button>
-        <button class="btn btn-primary" onclick="nextStep()">下一步 →</button>
+        <button class="btn btn-secondary" data-action="prev-step">← 上一步</button>
+        <button class="btn btn-primary" data-action="next-step">下一步 →</button>
       </div>
     `;
   }
@@ -271,8 +280,8 @@ export class OnboardingWebview extends BaseWebview {
         </div>
       </div>
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="prevStep()">← 上一步</button>
-        <button class="btn btn-primary" onclick="finish()">完成设置 ✓</button>
+        <button class="btn btn-secondary" data-action="prev-step">← 上一步</button>
+        <button class="btn btn-primary" data-action="finish">完成设置 ✓</button>
       </div>
     `;
   }
@@ -285,7 +294,7 @@ export class OnboardingWebview extends BaseWebview {
         <p>Remember Me 已记住你的偏好。</p>
         <p>现在你可以开始与 AI 协作了，它会记住你的风格和项目背景。</p>
         <div class="btn-group" style="justify-content: center;">
-          <button class="btn btn-primary" onclick="postMessage('close')">开始体验</button>
+          <button class="btn btn-primary" data-action="close">开始体验</button>
         </div>
       </div>
     `;

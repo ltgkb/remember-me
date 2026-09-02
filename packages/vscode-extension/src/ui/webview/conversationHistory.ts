@@ -261,7 +261,7 @@ export class ConversationHistoryWebview extends BaseWebview {
         (t) =>
           `<label class="checkbox-item ${
             this.currentFilter.tags?.includes(t) ? 'checked' : ''
-          }" onclick="toggleTag(this, '${this.escapeJsString(t)}')">
+          }">
             <input type="checkbox" value="${this.escapeHtml(t)}" ${
             this.currentFilter.tags?.includes(t) ? 'checked' : ''
           }>
@@ -279,23 +279,23 @@ export class ConversationHistoryWebview extends BaseWebview {
         <div class="search-box">
           <input type="text" id="searchInput" placeholder="搜索关键词..." value="${this.escapeHtml(
             this.currentFilter.keyword || ''
-          )}" oninput="scheduleSearch()" onkeydown="if(event.key==='Enter') doSearch()">
+          )}">
         </div>
         <div class="filter-bar">
           <div class="filter-group">
             <label>项目</label>
-            <select id="projectFilter" onchange="updateProjectFilter()">
+            <select id="projectFilter">
               <option value="" ${!this.currentFilter.projectName ? 'selected' : ''}>全部项目</option>
               ${projectOptions}
             </select>
           </div>
           <div class="filter-group">
             <label>开始日期</label>
-            <input type="date" id="startDate" value="${startDateValue}" onchange="updateDateFilter()">
+            <input type="date" id="startDate" value="${startDateValue}">
           </div>
           <div class="filter-group">
             <label>结束日期</label>
-            <input type="date" id="endDate" value="${endDateValue}" onchange="updateDateFilter()">
+            <input type="date" id="endDate" value="${endDateValue}">
           </div>
           <div class="filter-group filter-group-wide">
             <label>标签</label>
@@ -305,8 +305,8 @@ export class ConversationHistoryWebview extends BaseWebview {
           </div>
         </div>
         <div class="toolbar-actions">
-          <button class="btn btn-primary" onclick="doSearch()">🔍 搜索</button>
-          <button class="btn btn-secondary" onclick="clearFilters()">清除筛选</button>
+          <button class="btn btn-primary" data-action="search">🔍 搜索</button>
+          <button class="btn btn-secondary" data-action="clear-filters">清除筛选</button>
         </div>
       </div>
       <script>
@@ -329,10 +329,8 @@ export class ConversationHistoryWebview extends BaseWebview {
           const endDate = document.getElementById('endDate').value;
           postMessage('filterByDateRange', { startDate, endDate });
         }
-        function toggleTag(element, tag) {
-          const checkbox = element.querySelector('input');
-          checkbox.checked = !checkbox.checked;
-          element.classList.toggle('checked', checkbox.checked);
+        function updateTagFilter(checkbox) {
+          checkbox.parentElement.classList.toggle('checked', checkbox.checked);
           const checkboxes = document.querySelectorAll('#tagFilter input:checked');
           const tags = Array.from(checkboxes).map(cb => cb.value);
           postMessage('filterByTags', { tags });
@@ -340,11 +338,11 @@ export class ConversationHistoryWebview extends BaseWebview {
         function selectConversation(projectName, conversationId) {
           postMessage('selectConversation', { projectName, conversationId });
         }
-        function toggleGroup(projectName) {
-          const content = document.getElementById('group-' + projectName);
+        function toggleGroup(header) {
+          const content = header.nextElementSibling;
           if (content) {
             content.classList.toggle('collapsed');
-            const toggle = content.previousElementSibling.querySelector('.project-group-toggle');
+            const toggle = header.querySelector('.project-group-toggle');
             if (toggle) {
               toggle.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
             }
@@ -356,6 +354,31 @@ export class ConversationHistoryWebview extends BaseWebview {
         function clearFilters() {
           postMessage('clearFilters');
         }
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', scheduleSearch);
+        searchInput.addEventListener('keydown', event => {
+          if (event.key === 'Enter') doSearch();
+        });
+        document.getElementById('projectFilter').addEventListener('change', updateProjectFilter);
+        document.getElementById('startDate').addEventListener('change', updateDateFilter);
+        document.getElementById('endDate').addEventListener('change', updateDateFilter);
+        document.querySelectorAll('#tagFilter input').forEach(checkbox => {
+          checkbox.addEventListener('change', () => updateTagFilter(checkbox));
+        });
+        document.addEventListener('click', event => {
+          const target = event.target.closest('[data-action]');
+          if (!target) return;
+          const action = target.dataset.action;
+          if (action === 'search') doSearch();
+          if (action === 'clear-filters') clearFilters();
+          if (action === 'toggle-group') toggleGroup(target);
+          if (action === 'select-conversation') {
+            selectConversation(target.dataset.projectName, target.dataset.conversationId);
+          }
+          if (action === 'export-conversation') {
+            exportConversation(target.dataset.projectName, target.dataset.conversationId);
+          }
+        });
       </script>
     `;
   }
@@ -402,12 +425,12 @@ export class ConversationHistoryWebview extends BaseWebview {
       .map(
         ([projectName, results]) => `
         <div class="project-group">
-          <div class="project-group-header" onclick="toggleGroup('${this.escapeJsString(projectName)}')">
+          <div class="project-group-header" data-action="toggle-group">
             <span class="project-group-toggle">▼</span>
             <span class="project-group-name">${this.escapeHtml(projectName)}</span>
             <span class="project-group-count">${results.length}</span>
           </div>
-          <div class="project-group-content" id="group-${this.escapeJsString(projectName)}">
+          <div class="project-group-content">
             ${results.map((r) => this.renderConversationItem(r)).join('')}
           </div>
         </div>
@@ -430,9 +453,9 @@ export class ConversationHistoryWebview extends BaseWebview {
     const decisionCount = conv.keyDecisions.length;
 
     return `
-      <div class="conversation-item ${isSelected ? 'selected' : ''}" onclick="selectConversation('${this.escapeJsString(
+      <div class="conversation-item ${isSelected ? 'selected' : ''}" data-action="select-conversation" data-project-name="${this.escapeHtml(
         result.projectName
-      )}', '${this.escapeJsString(conv.id)}')">
+      )}" data-conversation-id="${this.escapeHtml(conv.id)}">
         <div class="conversation-item-title">${this.escapeHtml(conv.title)}</div>
         <div class="conversation-item-meta">
           <span>${dateStr}</span>
@@ -517,9 +540,9 @@ export class ConversationHistoryWebview extends BaseWebview {
         }
         
         <div class="detail-actions">
-          <button class="btn btn-secondary" onclick="exportConversation('${this.escapeJsString(
+          <button class="btn btn-secondary" data-action="export-conversation" data-project-name="${this.escapeHtml(
             this.selectedProjectName || ''
-          )}', '${this.escapeJsString(conv.id)}')">📥 导出 Markdown</button>
+          )}" data-conversation-id="${this.escapeHtml(conv.id)}">📥 导出 Markdown</button>
         </div>
       </div>
     `;
@@ -1050,22 +1073,6 @@ export class ConversationHistoryWebview extends BaseWebview {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
-  }
-
-  /**
-   * 转义 JS 字符串中的特殊字符（用于 HTML 属性中的 JS 字符串）
-   */
-  private escapeJsString(text: string): string {
-    if (!text) {
-      return '';
-    }
-    return text
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
   }
 
   /**

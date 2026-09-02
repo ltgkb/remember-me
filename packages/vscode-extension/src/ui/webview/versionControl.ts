@@ -225,7 +225,7 @@ export class VersionControlWebview extends BaseWebview {
         <h2>🗂️ 记忆版本控制</h2>
         <p>查看备份历史、预览内容并回滚到任意版本</p>
         <div class="vc-actions">
-          <button class="btn btn-primary" onclick="refreshBackups()">🔄 刷新</button>
+          <button class="btn btn-primary" data-action="refresh">🔄 刷新</button>
         </div>
       </div>
       <script>
@@ -241,16 +241,32 @@ export class VersionControlWebview extends BaseWebview {
         function requestDelete(backupPath) {
           postMessage('deleteBackup', { backupPath });
         }
-        function toggleGroup(groupId) {
-          const el = document.getElementById('group-' + groupId);
+        function toggleGroup(header) {
+          const el = header.nextElementSibling;
           if (el) {
             el.classList.toggle('collapsed');
-            const toggle = el.previousElementSibling.querySelector('.group-toggle');
+            const toggle = header.querySelector('.group-toggle');
             if (toggle) {
               toggle.textContent = el.classList.contains('collapsed') ? '▶' : '▼';
             }
           }
         }
+        document.addEventListener('click', event => {
+          const target = event.target.closest('[data-action]');
+          if (!target) return;
+          const action = target.dataset.action;
+          if (action === 'refresh') refreshBackups();
+          if (action === 'toggle-group') toggleGroup(target);
+          if (action === 'select-backup') selectBackup(target.dataset.backupPath);
+          if (action === 'rollback') {
+            event.stopPropagation();
+            requestRollback(target.dataset.backupPath, target.dataset.originalPath);
+          }
+          if (action === 'delete-backup') {
+            event.stopPropagation();
+            requestDelete(target.dataset.backupPath);
+          }
+        });
       </script>
     `;
   }
@@ -266,7 +282,7 @@ export class VersionControlWebview extends BaseWebview {
     return `
       <div class="vc-main">
         <div class="vc-sidebar">
-          ${this.backupGroups.map((g, idx) => this.renderBackupGroup(g, idx)).join('')}
+          ${this.backupGroups.map((g) => this.renderBackupGroup(g)).join('')}
         </div>
         <div class="vc-preview">
           ${this.renderPreviewPanel()}
@@ -291,22 +307,20 @@ export class VersionControlWebview extends BaseWebview {
   /**
    * 渲染单个文件备份分组（手风琴卡片）
    * @param group 备份分组
-   * @param index 分组索引（用于生成唯一 ID）
    */
-  private renderBackupGroup(group: BackupGroup, index: number): string {
-    const groupId = `grp-${index}`;
+  private renderBackupGroup(group: BackupGroup): string {
     const backupCount = group.backups.length;
 
     return `
       <div class="vc-group">
-        <div class="vc-group-header" onclick="toggleGroup('${groupId}')">
+        <div class="vc-group-header" data-action="toggle-group">
           <span class="group-toggle">▼</span>
           <span class="vc-group-name" title="${this.escapeHtml(group.originalPath)}">${this.escapeHtml(
             group.displayName
           )}</span>
           <span class="badge badge-info">${backupCount}</span>
         </div>
-        <div class="vc-group-content" id="group-${groupId}">
+        <div class="vc-group-content">
           <div class="timeline">
             ${group.backups.map((b, bidx) => this.renderTimelineItem(b, bidx, group.backups.length)).join('')}
           </div>
@@ -331,9 +345,9 @@ export class VersionControlWebview extends BaseWebview {
     const dateStr = this.formatDateTime(item.timestamp);
 
     return `
-      <div class="timeline-item ${isSelected ? 'selected' : ''}" onclick="selectBackup('${this.escapeJsString(
+      <div class="timeline-item ${isSelected ? 'selected' : ''}" data-action="select-backup" data-backup-path="${this.escapeHtml(
         item.backupPath
-      )}')">
+      )}">
         <div class="timeline-dot ${status}"></div>
         <div class="timeline-content">
           <div class="timeline-meta">
@@ -354,14 +368,14 @@ export class VersionControlWebview extends BaseWebview {
   private renderBackupActions(item: BackupItem): string {
     return `
       <div class="timeline-actions">
-        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); requestRollback('${this.escapeJsString(
+        <button class="btn btn-primary btn-sm" data-action="rollback" data-backup-path="${this.escapeHtml(
           item.backupPath
-        )}', '${this.escapeJsString(item.originalPath)}')">
+        )}" data-original-path="${this.escapeHtml(item.originalPath)}">
           ↩️ 回滚到此版本
         </button>
-        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); requestDelete('${this.escapeJsString(
+        <button class="btn btn-secondary btn-sm" data-action="delete-backup" data-backup-path="${this.escapeHtml(
           item.backupPath
-        )}')">
+        )}">
           🗑️ 删除此备份
         </button>
       </div>
@@ -395,14 +409,14 @@ export class VersionControlWebview extends BaseWebview {
           </div>
         </div>
         <div class="preview-actions-bar">
-          <button class="btn btn-primary btn-sm" onclick="requestRollback('${this.escapeJsString(
+          <button class="btn btn-primary btn-sm" data-action="rollback" data-backup-path="${this.escapeHtml(
             this.previewItem.backupPath
-          )}', '${this.escapeJsString(this.previewItem.originalPath)}')">
+          )}" data-original-path="${this.escapeHtml(this.previewItem.originalPath)}">
             ↩️ 回滚到此版本
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="requestDelete('${this.escapeJsString(
+          <button class="btn btn-secondary btn-sm" data-action="delete-backup" data-backup-path="${this.escapeHtml(
             this.previewItem.backupPath
-          )}')">
+          )}">
             🗑️ 删除此备份
           </button>
         </div>
@@ -711,18 +725,6 @@ export class VersionControlWebview extends BaseWebview {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
-  }
-
-  /**
-   * JavaScript 字符串转义（用于 HTML 属性）
-   * @param text 原始文本
-   * @returns 转义后的文本
-   */
-  private escapeJsString(text: string): string {
-    if (!text) {
-      return '';
-    }
-    return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
   }
 
   /**

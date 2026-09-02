@@ -26,20 +26,23 @@
 | P1 | Release 无 VSIX、缺 LICENSE、扩展包不可复现交付 | CI/Tag 打包链、MIT LICENSE、包元数据与 README |
 | P2 | VSIX 含 2008 个文件和完整依赖/测试产物 | esbuild 单文件 bundle + `.vscodeignore` |
 | P2 | 多个 Webview 无 CSP | 基础 Webview 统一 nonce CSP |
+| P1 | 人工安装发现 nonce CSP 会阻止页面遗留的内联事件，设置向导等五个 Webview 可显示但不可交互 | 全部改为 nonce 脚本事件绑定与 `data-*` 参数，保留严格 CSP 并新增全目录回归测试 |
+| P2 | 记忆浏览器把缺少 `context.json` 的残留目录统计为项目 | 只显示可读取有效上下文的项目，并转义项目 ID |
 
 ## 验证证据
 
-- TypeScript：`npm test`，342 项通过。
+- TypeScript：`npm test`，346 项通过（含 Webview CSP 与记忆搜索回归测试）。
 - Node 生产依赖：`npm audit --omit=dev`，0 个已知漏洞（基线检查）。
 - Python：`pytest tests -q`，397 项通过。
 - Python 静态检查：Ruff 通过；Mypy strict 对 21 个源文件通过。
 - HTTP：真实启动 `memory_engine.server`，8 组端点测试通过；无语义依赖时按设计返回 503 并保留关键词能力。
-- VSIX：真实打包成功，约 202 KB / 6 文件；包内仅 manifest、元数据、许可证、README 与单一 extension bundle。
+- VSIX：真实打包成功，约 202 KB / 6 文件；SHA-256 `268afb019f7924a6ce8bfdbbb1f8fa74d5a8f4a19837a118b8acf26ce6390259`。
+- macOS 人工安装：在 VS Code 1.130.0 arm64 覆盖安装 `remember-me-team.remember-me@0.4.0-alpha.1`，验证扩展激活、状态栏、About、设置页导航、首次引导下一步/复选框、记忆搜索/清除、对话历史搜索/清除和版本控制刷新。
 
 ## 尚未宣称完成
 
 - 尚未使用真实 DeepSeek/Qwen 等密钥执行云端问答，因此不宣称所有提供商当前 API 兼容性已实测。
-- 尚未在 Extension Development Host 中完成全流程人工 UI 验收；单元、类型、包结构和核心数据链已验证。
+- 尚未用真实个人画像、项目和提供商完成“保存设置 → 云端问答 → 自动持久化 → 重启恢复”的人工端到端验收；本轮人工 UI 测试未写入虚构画像或项目数据。
 - 语义搜索仍使用 `all-MiniLM-L6-v2`，中英跨语言召回限制仍在。
 - 云同步目前主要是加密与本地协议原语，缺少云端适配器、冲突 UI 和生产级端到端验证。
 - 当前未发布到 VS Code Marketplace；本轮建立的是可复现 VSIX 与后续 Release 自动附加能力。
@@ -47,7 +50,7 @@
 
 ## 下一轮建议
 
-1. 在 macOS/Windows 的 Extension Development Host 各跑一次“首次设置 → 安全设置密钥/本地模型 → 对话 → 历史 → 搜索 → 重启恢复”。
+1. 在 Windows 补一次 Extension Development Host 验收，并在隔离测试数据目录完成“首次设置 → 安全设置密钥/本地模型 → 对话 → 历史 → 搜索 → 重启恢复”。
 2. 用真实提供商做匹配问题的流式响应、错误提示、超时和模型名兼容性测试。
 3. CI 多平台绿灯后发布 `v0.4.0-alpha.1` GitHub Release，再决定是否提交 Marketplace。
 4. 暂缓新增同步功能，先为数据导出/删除、隐私告知、诊断页和故障恢复补产品化入口。
