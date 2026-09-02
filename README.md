@@ -4,6 +4,7 @@
 
 [![VS Code Version](https://img.shields.io/badge/VS%20Code-%5E1.85.0-blue)](https://code.visualstudio.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![CI](https://github.com/ltgkb/remember-me/actions/workflows/ci.yml/badge.svg)](https://github.com/ltgkb/remember-me/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 Remember Me 是一款 VS Code 插件，专为**产品经理、运营、设计师、学生、创业者**等非技术用户设计，让 AI 能"记住"你的做事风格、偏好和过往对话，不再每次从头教。
@@ -78,21 +79,15 @@ Phase 3 为 Remember Me 带来了四大智能特性，让 AI 协作更加高效�
 
 ## 📦 安装指南
 
-### 方式一：从 VS Code 扩展市场安装（推荐）
+### 方式一：安装 VSIX（当前推荐）
 
-1. 打开 VS Code
-2. 点击左侧活动栏的 **扩展** 图标（或按 `Ctrl+Shift+X` / `Cmd+Shift+X`）
-3. 搜索 `"Remember Me"`
-4. 点击 **安装**
+1. 从最新成功的 [CI 运行](https://github.com/ltgkb/remember-me/actions/workflows/ci.yml) 下载 `remember-me-vsix` 构建产物；新版本标签也会把它附加到 [GitHub Releases](https://github.com/ltgkb/remember-me/releases)
+2. 在 VS Code 中运行 **“扩展：从 VSIX 安装”**
+3. 选择下载的文件并重新加载窗口
 
-### 方式二：从 VSIX 文件安装
+> 当前扩展尚未发布到 VS Code Marketplace。CI 会为每次通过验证的提交生成 VSIX，后续版本标签会自动把 VSIX 附加到 GitHub Release。
 
-1. 从 [Releases](https://github.com/ltgkb/remember-me/releases) 页面下载最新 `.vsix` 文件
-2. 在 VS Code 中，按 `Ctrl+Shift+P` / `Cmd+Shift+P` 打开命令面板
-3. 输入并选择 **"扩展：从 VSIX 安装"**
-4. 选择下载的 `.vsix` 文件
-
-### 方式三：源码安装（开发者）
+### 方式二：源码运行（开发者）
 
 ```bash
 # 克隆仓库
@@ -109,6 +104,16 @@ npm run compile
 ```
 
 详细安装说明请参阅 [docs/INSTALL.md](docs/INSTALL.md)。
+
+### 可选：安装 Python 记忆引擎
+
+```bash
+cd packages/memory-engine
+python -m pip install -e .                 # 提取、关键词搜索与本地服务
+python -m pip install -e '.[semantic]'     # 额外启用语义搜索（依赖较大）
+python -m pip install -e '.[sync]'         # 同步加密与协议原语
+python -m memory_engine.server
+```
 
 ---
 
@@ -147,6 +152,8 @@ npm run compile
 - **搜索记忆**：按 `Ctrl+Shift+P` 搜索 **"Remember Me: 搜索记忆"**
 - **编辑记忆**：点击状态栏 **"编辑记忆"**，在可视化面板中修改
 - **查看对话历史**：在侧边栏 Remember Me 视图中浏览历史对话
+
+每次成功问答都会自动写入当前项目的对话历史；未选择项目时写入“未分类”。索引会随写入即时更新，无需重启扩展。
 
 ---
 
@@ -207,6 +214,7 @@ VS Code 底部状态栏会显示当前激活的记忆状态：
 | `Remember Me: 刷新记忆` | 刷新记忆数据 |
 | `Remember Me: 查看对话历史` | 查看历史对话记录 |
 | `Remember Me: 关于` | 显示插件版本信息 |
+| `Remember Me: 安全设置 API 密钥` | 将当前云端提供商密钥保存到 VS Code SecretStorage |
 
 ### 侧边栏
 
@@ -232,7 +240,7 @@ VS Code 底部状态栏会显示当前激活的记忆状态：
 └── templates/                # 文档模板
 ```
 
-你可以直接编辑这些 JSON 文件，所有修改会实时同步到插件中。
+你可以直接编辑这些 JSON 文件；编辑完成后运行 **“Remember Me: 刷新记忆”** 重新载入界面状态。
 
 更多详细用法请参阅 [docs/USAGE.md](docs/USAGE.md)。
 
@@ -255,9 +263,9 @@ VS Code 底部状态栏会显示当前激活的记忆状态：
 2. 搜索 `"Remember Me"`
 3. 配置以下选项：
    - **AI 提供商**：选择你的提供商
-   - **API 密钥**：输入你的 API Key
    - **模型名称**：选择模型（如 `deepseek-chat`）
    - **自定义 API 基础 URL**（可选）：用于本地部署或代理
+4. 云端提供商请运行 **“Remember Me: 安全设置 API 密钥”**。密钥保存在 VS Code SecretStorage，不会明文写入 `settings.json`。
 
 ---
 
@@ -345,7 +353,7 @@ npm run watch
 
 ## 🗺 路线图
 
-### Phase 1：MVP（当前）
+### Phase 1：MVP（已完成）
 - [x] VS Code 插件脚手架
 - [x] 设置向导（3 分钟问卷）
 - [x] JSON 存储层（Profile + Project Context）
@@ -384,7 +392,7 @@ npm run watch
 
 ### Q: 我的记忆数据安全吗？
 
-**A:** 绝对安全。所有记忆数据以纯 JSON 文件形式存储在你的本地计算机（`~/.remember-me/`），不上传任何服务器。你可以随时查看、编辑或删除这些文件。
+**A:** 记忆文件默认保存在本机 `~/.remember-me/`，你可以随时查看、编辑或删除。使用 DeepSeek、通义千问等云端提供商时，当前输入和为本次请求构建的记忆 Prompt 会发送给该提供商；如需完全离线，请选择 Ollama 或 LM Studio。API 密钥保存在 VS Code SecretStorage。
 
 ### Q: 支持哪些 AI 模型？
 
@@ -399,7 +407,7 @@ npm run watch
 **A:** 由于记忆数据是纯 JSON 文件，你可以：
 - 用 Git 管理 `~/.remember-me/` 目录
 - 定期复制备份文件夹
-- 插件内置自动备份功能（每次更新保留最近 20 个版本）
+- 插件内置版本备份功能（通过插件更新已有记录时保留最近 20 个版本）
 
 ### Q: 如何迁移记忆到另一台电脑？
 

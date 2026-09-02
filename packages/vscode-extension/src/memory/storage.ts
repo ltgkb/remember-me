@@ -6,15 +6,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import type { StorageConfig, WriteMode } from '../types';
+import type { StorageConfig } from '../types';
 import { getLogger } from '../utils/logger';
 
+type WriteListener = (relativePath: string) => void;
+
 export class JsonStorage {
-  private basePath: string;
+  private readonly basePath: string;
+  private readonly baseRealPath: string;
+  private readonly writeListeners = new Set<WriteListener>();
 
   constructor(config?: StorageConfig) {
-    this.basePath = config?.basePath || path.join(os.homedir(), '.remember-me');
+    this.basePath = path.resolve(config?.basePath || path.join(os.homedir(), '.remember-me'));
     this.ensureDir(this.basePath);
+    this.baseRealPath = fs.realpathSync(this.basePath);
   }
 
   getBasePath(): string {
@@ -29,11 +34,57 @@ export class JsonStorage {
     }
   }
 
+  /**
+   * Resolve a path inside the storage root.
+   *
+   * JsonStorage receives some path fragments derived from imported files and UI
+   * messages. Rejecting absolute paths and parent traversal here keeps every
+   * caller inside ~/.remember-me even if an upstream validation is missed.
+   */
   private resolvePath(...segments: string[]): string {
-    const fullPath = path.join(this.basePath, ...segments);
-    const dir = path.dirname(fullPath);
-    this.ensureDir(dir);
+    if (segments.length === 0 || segments.some((segment) => !segment || path.isAbsolute(segment))) {
+      throw new Error('存储路径无效');
+    }
+
+    const fullPath = path.resolve(this.basePath, ...segments);
+    const relative = path.relative(this.basePath, fullPath);
+    if (relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) {
+      throw new Error('存储路径不能超出 Remember Me 数据目录');
+    }
+
+    // Resolve the nearest existing ancestor as well, otherwise a symlink inside
+    // the storage root could redirect a seemingly safe path outside it.
+    let existingAncestor = fullPath;
+    while (!fs.existsSync(existingAncestor) && existingAncestor !== this.basePath) {
+      existingAncestor = path.dirname(existingAncestor);
+    }
+    const ancestorRealPath = fs.realpathSync(existingAncestor);
+    const realRelative = path.relative(this.baseRealPath, ancestorRealPath);
+    if (
+      realRelative.startsWith(`..${path.sep}`) ||
+      realRelative === '..' ||
+      path.isAbsolute(realRelative)
+    ) {
+      throw new Error('存储路径不能通过符号链接超出 Remember Me 数据目录');
+    }
     return fullPath;
+  }
+
+  private notifyWrite(pathSegments: string[]): void {
+    const relativePath = pathSegments.join('/');
+    for (const listener of this.writeListeners) {
+      try {
+        listener(relativePath);
+      } catch (error) {
+        getLogger().warn(`[RememberMe] 写入监听器执行失败: ${relativePath}`, error);
+      }
+    }
+  }
+
+  /** Register a listener for successful writes. Returns an unsubscribe function. */
+  onDidWrite(listener: WriteListener): () => void {
+    this.writeListeners.add(listener);
+    return () => this.writeListeners.delete(listener);
   }
 
   // ========== 读写操作 ==========
@@ -54,10 +105,27 @@ export class JsonStorage {
 
   write(data: unknown, ...pathSegments: string[]): boolean {
     const filePath = this.resolvePath(...pathSegments);
+    const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
     try {
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      this.ensureDir(path.dirname(filePath));
+      // Same-directory temporary file + rename prevents a crash from leaving a
+      // partially written JSON document. Restrictive permissions protect new
+      // memory files on multi-user systems.
+      fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+      fs.renameSync(tempPath, filePath);
+      this.notifyWrite(pathSegments);
       return true;
     } catch (error) {
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+        }
+      } catch {
+        // Best-effort cleanup; preserve the original write error.
+      }
       getLogger().error(`[RememberMe] 写入文件失败: ${filePath}`, error);
       return false;
     }

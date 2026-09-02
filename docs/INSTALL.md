@@ -7,7 +7,6 @@
 ## 目录
 
 - [系统要求](#系统要求)
-- [从扩展市场安装](#从扩展市场安装)
 - [从 VSIX 安装](#从-vsix-安装)
 - [源码安装](#源码安装)
 - [安装后验证](#安装后验证)
@@ -33,35 +32,15 @@
 
 ---
 
-## 从扩展市场安装
-
-### 步骤
-
-1. 打开 VS Code
-2. 点击左侧活动栏的 **扩展** 图标（四个方块组成的图标），或按以下快捷键：
-   - Windows / Linux: `Ctrl+Shift+X`
-   - macOS: `Cmd+Shift+X`
-3. 在搜索框中输入 `"Remember Me"` 或 `"AI 记忆管家"`
-4. 找到 **"Remember Me - AI记忆管家"** 插件
-5. 点击 **安装** 按钮
-6. 安装完成后，点击 **重新加载** 激活插件
-
-### 安装后自动触发
-
-插件激活后会自动检查是否为首次使用：
-- **首次使用**：3 秒后弹出欢迎提示，引导你完成设置向导
-- **已有数据**：自动恢复上次的记忆状态
-
----
-
 ## 从 VSIX 安装
 
-适用于测试预发布版本或内网环境无法访问扩展市场的情况。
+当前扩展尚未发布到 VS Code Marketplace，因此 VSIX 是推荐安装方式。
 
 ### 步骤
 
 1. 从以下渠道获取 `.vsix` 文件：
-   - [GitHub Releases](https://github.com/ltgkb/remember-me/releases)
+   - 最新成功的 [GitHub Actions CI](https://github.com/ltgkb/remember-me/actions/workflows/ci.yml) 中的 `remember-me-vsix` 构建产物
+   - 后续版本的 [GitHub Releases](https://github.com/ltgkb/remember-me/releases)
    - 内部测试群 / 邮件分发
 
 2. 在 VS Code 中打开命令面板：
@@ -124,14 +103,11 @@ npm run watch
 ### 打包为 VSIX
 
 ```bash
-# 安装 vsce 工具（如未安装）
-npm install -g @vscode/vsce
-
-# 打包
+# 项目已固定打包工具版本，无需全局安装
 cd packages/vscode-extension
-vsce package
+npm run package
 
-# 生成的 .vsix 文件可用于分发
+# 生成 dist/remember-me.vsix
 ```
 
 ---
@@ -202,7 +178,7 @@ VS Code 底部状态栏应出现 **🧠 Remember Me** 图标。点击图标应�
 **现象**：点击"开始对话"后，AI 未返回内容。
 
 **排查步骤**：
-1. 检查 AI 提供商配置：设置 > Remember Me > API 密钥
+1. 云端模型运行命令 **“Remember Me: 安全设置 API 密钥”**
 2. 确认网络连接正常（云端模型）
 3. 确认 Ollama / LM Studio 已启动（本地模型）
 4. 查看输出面板 > "Remember Me" 日志

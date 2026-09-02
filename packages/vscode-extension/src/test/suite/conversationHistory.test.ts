@@ -110,6 +110,13 @@ describe('ConversationHistoryWebview', () => {
   });
 
   describe('HTML 生成', () => {
+    it('getHtml 应为脚本设置 CSP nonce', () => {
+      const html = webview.testGetHtml({ cspSource: 'vscode-webview:' } as vscode.Webview);
+      assert.ok(html.includes('Content-Security-Policy'));
+      assert.ok(html.includes("default-src 'none'"));
+      assert.strictEqual(/<script(?![^>]*\bnonce=)/.test(html), false);
+    });
+
     it('getHtml 应包含搜索框和筛选器', () => {
       const html = webview.testGetHtml({} as vscode.Webview);
       assert.ok(html.includes('searchInput'));

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -13,8 +14,53 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
+from . import __version__
 from .extractor import InfoExtractor
 from .vector_index import GLOBAL_PROJECT, SemanticSearchError, VectorIndex
+
+MAX_REQUEST_BODY_BYTES = 1024 * 1024
+MAX_QUERY_LENGTH = 10_000
+MAX_SEARCH_RESULTS = 100
+
+
+class RequestBodyError(ValueError):
+    """Invalid HTTP request body."""
+
+
+class RequestBodyTooLarge(RequestBodyError):
+    """HTTP request body exceeded the local service limit."""
+
+
+def _sanitize_project_name(project: str) -> str:
+    """Mirror the extension's project-directory normalization."""
+    normalized = re.sub(r"[^a-z0-9\u4e00-\u9fa5_-]", "-", project.lower().strip())
+    normalized = re.sub(r"-+", "-", normalized).strip("-")
+    if not normalized:
+        raise ValueError("项目名称无效")
+    return normalized
+
+
+def _resolve_project_root(data_dir: Path, project: object) -> Path:
+    """Resolve an optional project inside ``data_dir/projects`` without traversal."""
+    root = data_dir.resolve()
+    if not isinstance(project, str) or not project.strip():
+        return root
+    safe_project = _sanitize_project_name(project)
+    target = (root / "projects" / safe_project).resolve()
+    target.relative_to(root)
+    return target
+
+
+def _resolve_backup_target(data_dir: Path, file_param: str) -> Path:
+    """Resolve a backup target and guarantee it remains inside the memory root."""
+    root = data_dir.resolve()
+    supplied = Path(file_param)
+    target = supplied.resolve() if supplied.is_absolute() else (root / supplied).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("备份目标必须位于 Remember Me 数据目录内") from exc
+    return target
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
@@ -66,9 +112,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -83,34 +128,41 @@ class _RequestHandler(BaseHTTPRequestHandler):
             return {}
         try:
             length = int(content_length)
-        except ValueError:
-            return {}
+        except ValueError as exc:
+            raise RequestBodyError("Content-Length 无效") from exc
         if length <= 0:
             return {}
+        if length > MAX_REQUEST_BODY_BYTES:
+            raise RequestBodyTooLarge(
+                f"请求体超过 {MAX_REQUEST_BODY_BYTES // 1024} KiB 限制"
+            )
         try:
             raw = self.rfile.read(length).decode("utf-8")
-        except UnicodeDecodeError:
-            # A1-修复: 非 UTF-8 请求体不得使处理器崩溃（连接重置），
-            # 按无效请求体处理，由端点返回 400
-            return {}
+        except UnicodeDecodeError as exc:
+            raise RequestBodyError("请求体必须使用 UTF-8 编码") from exc
         try:
             data = json.loads(raw)
             if isinstance(data, dict):
                 return data
-        except json.JSONDecodeError:
-            pass
-        return {}
+        except json.JSONDecodeError as exc:
+            raise RequestBodyError("请求体必须是 JSON 对象") from exc
+        raise RequestBodyError("请求体必须是 JSON 对象")
+
+    def _reject_browser_origin(self) -> bool:
+        """Reject browser-originated requests; the official Node client sends no Origin."""
+        if self.headers.get("Origin"):
+            self._send_json(403, {"error": "本地服务不接受浏览器跨域请求"})
+            return True
+        return False
 
     def do_OPTIONS(self) -> None:
-        """处理 CORS 预检请求。"""
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
+        """Explicitly reject CORS preflight; the service is not a browser API."""
+        self._send_json(403, {"error": "本地服务不支持跨域访问"})
 
     def do_GET(self) -> None:
         """处理 GET 请求。"""
+        if self._reject_browser_origin():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -123,9 +175,22 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """处理 POST 请求。"""
+        if self._reject_browser_origin():
+            return
+        content_type = self.headers.get("Content-Type", "").lower()
+        if not content_type.startswith("application/json"):
+            self._send_json(415, {"error": "POST 请求必须使用 application/json"})
+            return
         parsed = urlparse(self.path)
         path = parsed.path
-        body = self._read_json_body()
+        try:
+            body = self._read_json_body()
+        except RequestBodyTooLarge as exc:
+            self._send_json(413, {"error": str(exc)})
+            return
+        except RequestBodyError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
 
         if path == "/extract":
             self._handle_extract(body)
@@ -159,7 +224,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             {
                 "status": "ok",
                 "service": "remember-me-engine",
-                "version": "0.3.0",
+                "version": __version__,
                 "semantic_ready": semantic_ready,
                 "model_loaded": model_loaded,
             },
@@ -179,6 +244,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
         text = body.get("text", "")
         if not isinstance(text, str) or not text.strip():
             self._send_json(400, {"error": "缺少或无效的 'text' 字段"})
+            return
+        if len(text) > MAX_QUERY_LENGTH:
+            self._send_json(400, {"error": f"'text' 不能超过 {MAX_QUERY_LENGTH} 个字符"})
             return
 
         include_insights = body.get("include_insights", False)
@@ -227,10 +295,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
         from .cli import _data_dir
         import gzip
 
-        data_dir = _data_dir()
-        search_root = data_dir
-        if isinstance(project, str) and project:
-            search_root = data_dir / project
+        data_dir = _data_dir().resolve()
+        search_root = _resolve_project_root(data_dir, project)
 
         if not search_root.exists():
             return [], 0
@@ -265,7 +331,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
                             snippet = snippet + "..."
                     matches.append(
                         {
-                            "file": str(file_path.relative_to(search_root)),
+                            "file": str(file_path.relative_to(data_dir)),
                             "line": line_num,
                             "snippet": snippet,
                         }
@@ -290,18 +356,20 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if not isinstance(keyword, str) or not keyword.strip():
             self._send_json(400, {"error": "缺少或无效的 'keyword' 字段"})
             return
+        if len(keyword) > MAX_QUERY_LENGTH:
+            self._send_json(400, {"error": f"'keyword' 不能超过 {MAX_QUERY_LENGTH} 个字符"})
+            return
 
         project = body.get("project")
         max_results = body.get("max_results", 50)
-        if not isinstance(max_results, int) or max_results <= 0:
+        if not isinstance(max_results, int) or isinstance(max_results, bool) or max_results <= 0:
             max_results = 50
+        max_results = min(max_results, MAX_SEARCH_RESULTS)
 
         from .cli import _data_dir
 
-        data_dir = _data_dir()
-        search_root = data_dir
-        if isinstance(project, str) and project:
-            search_root = data_dir / project
+        data_dir = _data_dir().resolve()
+        search_root = _resolve_project_root(data_dir, project)
 
         if not search_root.exists():
             self._send_json(404, {"error": f"数据目录不存在: {search_root}"})
@@ -338,14 +406,18 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if not isinstance(query, str) or not query.strip():
             self._send_json(400, {"error": "缺少或无效的 'query' 字段"})
             return
+        if len(query) > MAX_QUERY_LENGTH:
+            self._send_json(400, {"error": f"'query' 不能超过 {MAX_QUERY_LENGTH} 个字符"})
+            return
 
         project = body.get("project")
         if not isinstance(project, str) or not project.strip():
             project = None
 
         top_k = body.get("top_k", 5)
-        if not isinstance(top_k, int) or top_k <= 0:
+        if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0:
             top_k = 5
+        top_k = min(top_k, MAX_SEARCH_RESULTS)
 
         threshold = body.get("threshold", 0.0)
         if not isinstance(threshold, (int, float)) or threshold < 0:
@@ -461,14 +533,18 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if not isinstance(query, str) or not query.strip():
             self._send_json(400, {"error": "缺少或无效的 'query' 字段"})
             return
+        if len(query) > MAX_QUERY_LENGTH:
+            self._send_json(400, {"error": f"'query' 不能超过 {MAX_QUERY_LENGTH} 个字符"})
+            return
 
         project = body.get("project")
         if not isinstance(project, str) or not project.strip():
             project = None
 
         top_k = body.get("top_k", 5)
-        if not isinstance(top_k, int) or top_k <= 0:
+        if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0:
             top_k = 5
+        top_k = min(top_k, MAX_SEARCH_RESULTS)
 
         keyword_weight = body.get("keyword_weight", 0.3)
         if not isinstance(keyword_weight, (int, float)):
@@ -602,7 +678,13 @@ class _RequestHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "缺少 'file' 查询参数"})
             return
 
-        target = Path(file_param).resolve()
+        from .cli import _data_dir
+
+        try:
+            target = _resolve_backup_target(_data_dir(), file_param)
+        except ValueError as exc:
+            self._send_json(403, {"error": str(exc)})
+            return
         if not target.exists():
             self._send_json(404, {"error": f"目标文件不存在: {target}"})
             return
@@ -693,6 +775,7 @@ class MemoryEngineServer:
 
     def run(self) -> None:
         """启动阻塞式 HTTP 服务。"""
+        _RequestHandler._shutdown_event.clear()
         self._server = HTTPServer((self.host, self.port), _RequestHandler)
         print(
             f"Remember Me Engine 服务已启动: http://{self.host}:{self.port}",

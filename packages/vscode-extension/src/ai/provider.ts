@@ -45,6 +45,13 @@ const PROVIDER_BASE_URLS: Record<ProviderType, string | undefined> = {
   lmstudio: 'http://localhost:1234/v1',
 };
 
+const LOCAL_PROVIDERS = new Set<ProviderType>(['ollama', 'lmstudio']);
+
+/** SecretStorage key used for a provider credential. */
+export function getApiKeySecretKey(type: ProviderType): string {
+  return `rememberMe.apiKey.${type}`;
+}
+
 /** Provider 创建时可选覆盖配置 */
 export interface ProviderCreateOptions {
   /** API 密钥，默认从 VS Code 配置读取 */
@@ -74,22 +81,23 @@ export function createProvider(
     vscodeConfig.get<string>('apiBaseUrl') ??
     PROVIDER_BASE_URLS[type];
   const model = options?.model;
+  const configuredModel = model || vscodeConfig.get<string>('modelName') || undefined;
 
   switch (type) {
     case 'deepseek':
-      return new DeepSeekProvider(apiKey, baseURL);
+      return new DeepSeekProvider(apiKey, baseURL, configuredModel);
 
     case 'qwen':
-      return new QwenProvider(apiKey, baseURL);
+      return new QwenProvider(apiKey, baseURL, configuredModel);
 
     case 'ernie':
-      return new ErnieProvider(apiKey, baseURL);
+      return new ErnieProvider(apiKey, baseURL, configuredModel);
 
     case 'chatglm':
-      return new ChatGLMProvider(apiKey, baseURL);
+      return new ChatGLMProvider(apiKey, baseURL, configuredModel);
 
     case 'ollama':
-      return new OllamaProvider(baseURL);
+      return new OllamaProvider(baseURL, configuredModel);
 
     case 'lmstudio': {
       // LM Studio 使用 OpenAI 兼容接口，复用 BaseOpenAIProvider
@@ -97,7 +105,7 @@ export function createProvider(
         name: PROVIDER_DEFAULTS.lmstudio.name,
         apiKey: 'lm-studio',
         baseURL: baseURL || PROVIDER_BASE_URLS.lmstudio,
-        defaultModel: model || PROVIDER_DEFAULTS.lmstudio.defaultModel,
+        defaultModel: configuredModel || PROVIDER_DEFAULTS.lmstudio.defaultModel,
       };
       return new BaseOpenAIProviderForLMStudio(lmConfig);
     }
@@ -124,6 +132,7 @@ export class AIProviderManager {
   private static instance: AIProviderManager | null = null;
   private currentProvider: AIProvider | null = null;
   private providerType: ProviderType = 'deepseek';
+  private secretStorage: vscode.SecretStorage | undefined;
 
   private constructor() {}
 
@@ -139,10 +148,16 @@ export class AIProviderManager {
    * 初始化管理器
    * 读取 VS Code 配置中的默认提供商并创建实例
    */
-  async initialize(): Promise<boolean> {
+  async initialize(secretStorage?: vscode.SecretStorage): Promise<boolean> {
+    if (secretStorage) {
+      this.secretStorage = secretStorage;
+    }
     const config = vscode.workspace.getConfiguration('rememberMe');
     const providerType = config.get<ProviderType>('aiProvider', 'deepseek');
-    return this.switchProvider(providerType);
+    const apiKey = this.secretStorage
+      ? await this.secretStorage.get(getApiKeySecretKey(providerType))
+      : undefined;
+    return this.switchProvider(providerType, { apiKey });
   }
 
   /**
@@ -156,12 +171,17 @@ export class AIProviderManager {
     options?: ProviderCreateOptions
   ): Promise<boolean> {
     try {
-      const provider = createProvider(type, options);
-      const isValid = await provider.validateConfig();
-      if (!isValid) {
-        getLogger().warn(`[RememberMe] ${type} 配置验证失败，请检查 API 密钥和连接`);
+      const configuredApiKey =
+        options?.apiKey ??
+        vscode.workspace.getConfiguration('rememberMe').get<string>('apiKey', '');
+      if (!LOCAL_PROVIDERS.has(type) && !configuredApiKey) {
+        getLogger().warn(`[RememberMe] ${type} 缺少 API 密钥`);
         return false;
       }
+      const provider = createProvider(type, options);
+      // Do not probe models.list() here. Several OpenAI-compatible providers do
+      // not expose that endpoint even though chat completions work, and the
+      // extra network call delayed every conversation.
       this.currentProvider = provider;
       this.providerType = type;
       return true;

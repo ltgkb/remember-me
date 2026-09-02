@@ -2,8 +2,17 @@
   "name": "remember-me",
   "displayName": "Remember Me - AI记忆管家",
   "description": "让AI记住你的风格、偏好和项目上下文，不再每次从头教",
-  "version": "0.3.0",
+  "version": "0.4.0-alpha.1",
   "publisher": "remember-me-team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ltgkb/remember-me.git"
+  },
+  "homepage": "https://github.com/ltgkb/remember-me#readme",
+  "bugs": {
+    "url": "https://github.com/ltgkb/remember-me/issues"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -23,7 +32,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist-extension/extension.js",
   "contributes": {
     "commands": [
       {
@@ -75,6 +84,11 @@
       {
         "command": "rememberMe.showAbout",
         "title": "关于 Remember Me"
+      },
+      {
+        "command": "rememberMe.setApiKey",
+        "title": "安全设置 API 密钥",
+        "icon": "$(key)"
       },
       {
         "command": "rememberMe.selectTemplate",
@@ -160,7 +174,8 @@
         "rememberMe.apiKey": {
           "type": "string",
           "default": "",
-          "description": "API密钥"
+          "description": "旧版明文 API 密钥（启动后会自动迁移至 VS Code SecretStorage）",
+          "deprecationMessage": "请运行“Remember Me: 安全设置 API 密钥”，不要在 settings.json 中保存密钥。"
         },
         "rememberMe.apiBaseUrl": {
           "type": "string",
@@ -169,13 +184,14 @@
         },
         "rememberMe.modelName": {
           "type": "string",
-          "default": "deepseek-chat",
-          "description": "模型名称"
+          "default": "",
+          "description": "模型名称（留空时使用所选提供商的默认模型）"
         },
         "rememberMe.memoryPath": {
           "type": "string",
           "default": "",
-          "description": "记忆存储路径（默认 ~/.remember-me）"
+          "scope": "machine",
+          "description": "记忆存储路径（默认 ~/.remember-me，更改后请重新加载窗口）"
         }
       }
     },
@@ -187,15 +203,20 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run check-types && npm run bundle",
+    "check-types": "tsc -p ./ --noEmit",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node18 --external:vscode --sourcemap --minify-syntax --minify-whitespace --outfile=dist-extension/extension.js",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "tsc -p ./ && node out/test/runner.js"
+    "test": "tsc -p ./ && node out/test/runner.js",
+    "package": "vsce package --out dist/remember-me.vsix"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
     "mocha": "^10.2.0",
     "typescript": "^5.3.0"
   },
