@@ -4,6 +4,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as os from 'os';
+import * as path from 'path';
 import { getStorage, JsonStorage } from './memory/storage';
 import { StatusBarManager } from './ui/statusBar';
 import { SettingsPanelWebview } from './ui/webview/settingsPanel';
@@ -24,7 +26,7 @@ import { getMemoryRecommender } from './memory/recommender';
 import { getSearchIndex, SearchIndexResult } from './utils/searchIndex';
 import { getProfileManager } from './memory/profile';
 import { getProjectManager } from './memory/project';
-import { AIProviderManager } from './ai/provider';
+import { AIProviderManager, getApiKeySecretKey, type ProviderType } from './ai/provider';
 import { getConversationManager } from './memory/conversation';
 import type { DetectedUpdate } from './memory/updateDetector';
 import { getSearchSettings } from './utils/searchSettings';
@@ -43,8 +45,19 @@ let semanticPollInterval: NodeJS.Timeout | undefined;
 //  activate
 // ═══════════════════════════════════════════════════════════════
 
-export function activate(context: vscode.ExtensionContext): void {
-  const storage = getStorage();
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  await migrateLegacyApiKey(context);
+
+  const configuredMemoryPath = vscode.workspace
+    .getConfiguration('rememberMe')
+    .get<string>('memoryPath', '')
+    .trim();
+  const expandedMemoryPath = configuredMemoryPath.startsWith('~/')
+    ? path.join(os.homedir(), configuredMemoryPath.slice(2))
+    : configuredMemoryPath;
+  const storage = getStorage({
+    basePath: expandedMemoryPath || path.join(os.homedir(), '.remember-me'),
+  });
   const basePath = storage.getBasePath();
 
   // 注册侧边栏
@@ -71,6 +84,12 @@ export function activate(context: vscode.ExtensionContext): void {
     searchIndex.rebuild(storage);
     searchIndex.save(basePath);
   }
+  const removeWriteListener = storage.onDidWrite((relativePath) => {
+    if (searchIndex.update(storage, relativePath)) {
+      searchIndex.save(basePath);
+    }
+  });
+  context.subscriptions.push({ dispose: removeWriteListener });
 
   // EngineClient 健康检查（不阻塞启动）
   const engineClient = new EngineClient();
@@ -206,7 +225,17 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
 
         // 初始化 AI 并对话
         const aiManager = AIProviderManager.getInstance();
-        await aiManager.initialize();
+        const initialized = await aiManager.initialize(context.secrets);
+        if (!initialized) {
+          const choice = await vscode.window.showErrorMessage(
+            '当前云端 AI 提供商尚未配置 API 密钥。',
+            '安全设置 API 密钥'
+          );
+          if (choice === '安全设置 API 密钥') {
+            void vscode.commands.executeCommand('rememberMe.setApiKey');
+          }
+          return;
+        }
 
         const messages = [
           { role: 'system' as const, content: systemPrompt },
@@ -223,6 +252,26 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
             language: 'markdown'
           });
           void vscode.window.showTextDocument(doc);
+
+          // Persist the completed exchange so the product's core memory loop
+          // (chat -> history -> recommendation/search) actually closes.
+          const conversationManager = getConversationManager(storage);
+          const timestamp = new Date().toISOString();
+          const conversation = conversationManager.create(
+            project?.name || '未分类',
+            createConversationTitle(userInput),
+            {
+              initialMessages: [
+                { role: 'user', content: userInput, timestamp },
+                { role: 'assistant', content: response, timestamp: new Date().toISOString() },
+              ],
+            }
+          );
+          if (!conversation) {
+            void vscode.window.showWarningMessage('回答已生成，但对话历史保存失败，请检查记忆目录权限。');
+          } else {
+            sidebarProvider.refresh();
+          }
         });
 
         // 文档保存监听（风格检查）
@@ -470,7 +519,37 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
     vscode.commands.registerCommand(
       'rememberMe.showAbout',
       runWithErrorHandler(() => {
-        void vscode.window.showInformationMessage('Remember Me v0.3.0 - AI 记忆管家（Phase 3 智能增强 + 语义搜索）');
+        const version = String(context.extension.packageJSON.version || 'unknown');
+        void vscode.window.showInformationMessage(
+          `Remember Me v${version} - AI 记忆管家`
+        );
+      })
+    )
+  );
+
+  // 12b. API 密钥使用 VS Code SecretStorage 保存，避免明文落入 settings.json。
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'rememberMe.setApiKey',
+      runWithErrorHandler(async () => {
+        const config = vscode.workspace.getConfiguration('rememberMe');
+        const providerType = config.get<ProviderType>('aiProvider', 'deepseek');
+        if (providerType === 'ollama' || providerType === 'lmstudio') {
+          void vscode.window.showInformationMessage(`${providerType} 为本地提供商，无需 API 密钥。`);
+          return;
+        }
+        const apiKey = await vscode.window.showInputBox({
+          title: `设置 ${providerType} API 密钥`,
+          prompt: '密钥将安全保存到 VS Code SecretStorage，不会写入 settings.json',
+          password: true,
+          ignoreFocusOut: true,
+        });
+        if (!apiKey?.trim()) {
+          return;
+        }
+        await context.secrets.store(getApiKeySecretKey(providerType), apiKey.trim());
+        AIProviderManager.getInstance().dispose();
+        void vscode.window.showInformationMessage(`${providerType} API 密钥已安全保存。`);
       })
     )
   );
@@ -795,6 +874,38 @@ function withProgress<T>(title: string, task: () => Thenable<T>): Thenable<T> {
     },
     () => task()
   );
+}
+
+function createConversationTitle(userInput: string): string {
+  const firstLine = userInput.split(/\r?\n/, 1)[0].trim().replace(/\s+/g, ' ');
+  return firstLine.slice(0, 48) || '新对话';
+}
+
+/** Move the legacy plaintext key to SecretStorage and remove it from settings. */
+async function migrateLegacyApiKey(context: vscode.ExtensionContext): Promise<void> {
+  const config = vscode.workspace.getConfiguration('rememberMe');
+  const legacyKey = config.get<string>('apiKey', '').trim();
+  if (!legacyKey) {
+    return;
+  }
+
+  const providerType = config.get<ProviderType>('aiProvider', 'deepseek');
+  const secretKey = getApiKeySecretKey(providerType);
+  if (!(await context.secrets.get(secretKey))) {
+    await context.secrets.store(secretKey, legacyKey);
+  }
+
+  const inspected = config.inspect<string>('apiKey');
+  if (inspected?.globalValue !== undefined) {
+    await config.update('apiKey', undefined, vscode.ConfigurationTarget.Global);
+  }
+  if (inspected?.workspaceValue !== undefined) {
+    await config.update('apiKey', undefined, vscode.ConfigurationTarget.Workspace);
+  }
+  if (inspected?.workspaceFolderValue !== undefined) {
+    await config.update('apiKey', undefined, vscode.ConfigurationTarget.WorkspaceFolder);
+  }
+  getLogger().info(`[RememberMe] 已将 ${providerType} API 密钥迁移到 SecretStorage`);
 }
 
 /**

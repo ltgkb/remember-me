@@ -4,6 +4,7 @@
  */
 
 import * as vscode from 'vscode';
+import { randomBytes } from 'crypto';
 
 export interface WebviewOptions {
   readonly viewType: string;
@@ -71,11 +72,17 @@ export abstract class BaseWebview {
    * 生成基础 HTML 模板
    */
   protected getBaseHtml(webview: vscode.Webview, contentHtml: string, styleCss: string = ''): string {
+    const nonce = randomBytes(16).toString('base64');
+    const securedContentHtml = contentHtml.replace(
+      /<script(?![^>]*\bnonce=)([^>]*)>/g,
+      `<script nonce="${nonce}"$1>`
+    );
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src ${webview.cspSource} data:;">
   <title>Remember Me</title>
   <style>
     :root {
@@ -421,9 +428,9 @@ export abstract class BaseWebview {
 </head>
 <body>
   <div class="container">
-    ${contentHtml}
+    ${securedContentHtml}
   </div>
-  <script>
+  <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
 
     function postMessage(command, data = {}) {

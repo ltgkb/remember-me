@@ -5,7 +5,21 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [0.4.0-alpha] - 未发布
+## [0.4.0-alpha.1] - 未发布
+
+### 优化（2026-09-02 全面审查迭代）
+
+- 闭合核心记忆链路：成功问答自动保存到当前项目（无项目时进入“未分类”），写入后即时增量更新并持久化关键词索引；初始消息同步提取洞察。
+- 修复同一天相同标题对话文件互相覆盖的问题，文件名增加对话唯一后缀。
+- JSON 存储改为同目录临时文件 + 原子重命名，默认新文件权限 `0600`；统一拒绝绝对路径、`..` 与符号链接逃逸；读取不存在路径不再产生目录副作用。
+- 云端 API 密钥改用 VS Code SecretStorage，旧版明文配置在启动时自动迁移并清除；新增“安全设置 API 密钥”命令。
+- `memoryPath` 与 `modelName` 配置真正接入运行时；AI 初始化不再依赖兼容性不稳定且增加延迟的 `models.list()` 探测。
+- 本地 memory-engine 拒绝浏览器 Origin/CORS，限制 JSON Content-Type、1 MiB 请求体、查询长度与结果上限；备份与项目搜索路径限定在记忆目录，并修复项目搜索漏掉 `projects/` 层级的问题。
+- 语义搜索重依赖移至 `semantic` 可选依赖组，基础引擎安装保持轻量；统一插件与引擎预发布版本为 `0.4.0-alpha.1` / `0.4.0a1`。
+- 所有基础 Webview 增加 nonce CSP，禁止未授权脚本与外部资源。
+- CI 清理任务改为仅手动触发且不再取消其他运行；CI 新增全量 Python 测试、Ruff、Mypy 与可安装 VSIX 构建，版本标签自动附加 VSIX 到 GitHub Release。
+- 插件改用 esbuild 打包，VSIX 从约 3.0 MB / 2008 文件缩减为约 202 KB / 6 文件。
+- 补齐 MIT LICENSE、扩展包元数据、打包 README 与真实安装/隐私说明；明确当前尚未发布到 VS Code Marketplace。
 
 ### 新增（Phase 4.2.1 本地加密层 · 首轮冲刺，2026-07-20）
 

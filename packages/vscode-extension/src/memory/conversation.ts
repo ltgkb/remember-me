@@ -54,7 +54,14 @@ export class ConversationManager {
       tags: options?.tags || [],
     };
 
-    const filename = this.buildFilename(title);
+    if (conversation.messages.length > 0) {
+      const extractor = getInfoExtractor();
+      conversation.insights = extractor.generateInsights(
+        extractor.extractFromConversation(conversation)
+      );
+    }
+
+    const filename = this.buildFilename(title, conversation.id);
     const success = this.storage.write(conversation, 'projects', safeName, CONVERSATIONS_DIR, filename);
     return success ? conversation : null;
   }
@@ -512,7 +519,7 @@ export class ConversationManager {
       .replace(/^-|-$/g, '');
   }
 
-  private buildFilename(title: string): string {
+  private buildFilename(title: string, conversationId: string): string {
     const dateStr = new Date().toISOString().split('T')[0];
     const safeTitle = title
       .toLowerCase()
@@ -521,7 +528,8 @@ export class ConversationManager {
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 50);
-    return `${dateStr}-${safeTitle}.json`;
+    const uniqueSuffix = conversationId.slice(-6);
+    return `${dateStr}-${safeTitle || 'conversation'}-${uniqueSuffix}.json`;
   }
 
   private findFilename(projectName: string, conversationId: string): string | null {

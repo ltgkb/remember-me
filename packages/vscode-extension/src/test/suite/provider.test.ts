@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import {
   createProvider,
   AIProviderManager,
+  getApiKeySecretKey,
   type ProviderType,
 } from '../../ai/provider';
 import { DeepSeekProvider } from '../../ai/deepseek';
@@ -16,6 +17,11 @@ import { ChatGLMProvider } from '../../ai/chatglm';
 import { OllamaProvider } from '../../ai/ollama';
 
 describe('AI Provider', () => {
+  it('应为不同提供商生成隔离的 SecretStorage 键', () => {
+    assert.strictEqual(getApiKeySecretKey('deepseek'), 'rememberMe.apiKey.deepseek');
+    assert.notStrictEqual(getApiKeySecretKey('deepseek'), getApiKeySecretKey('qwen'));
+  });
+
   describe('createProvider', () => {
     it('deepseek 应创建 DeepSeekProvider', () => {
       const provider = createProvider('deepseek', { apiKey: 'test-key' });

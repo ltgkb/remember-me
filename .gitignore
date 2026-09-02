@@ -16,6 +16,7 @@ build/
 node_modules/
 out/
 out-test/
+dist-extension/
 *.vsix
 
 # Runtime data & logs

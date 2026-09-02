@@ -162,10 +162,12 @@ class JsonStorage {
 
 ### 备份策略
 
-- 每次 `write()` 前自动调用 `backup()`
+- 通过管理器更新已有画像、项目或对话前调用 `backup()`
 - 备份命名：`{文件名}.{ISO时间戳}`
 - 保留策略：最近 20 个版本
 - 存储位置：文件同级目录的 `.backups/` 文件夹
+- JSON 写入使用同目录临时文件 + 原子重命名，避免进程中断留下半文件
+- 存储层统一拒绝绝对路径与 `..` 逃逸
 
 ---
 
@@ -214,10 +216,10 @@ class JsonStorage {
        └── 组装为 Markdown Prompt
        │
        ▼
-创建新文档，注入 Prompt
+调用所选 AI 提供商并展示回答
        │
        ▼
-用户继续与 AI 对话
+保存问题与回答 → 提取洞察 → 增量更新搜索索引
 ```
 
 ### Prompt 模板
@@ -546,7 +548,7 @@ export function getStorage(config?: StorageConfig): JsonStorage {
 | 场景 | 当前方案 | 优化方向 |
 |------|----------|----------|
 | 单文件读取 | 同步 `fs.readFileSync` | 保持同步，文件很小 |
-| 大量对话搜索 | 全量 JSON 遍历 | Phase 2 添加索引缓存 |
+| 大量对话搜索 | 持久化倒排索引 + 写入时增量更新 | 继续优化中文分词与相关性 |
 | Webview 加载 | 内联 HTML 字符串 | 考虑分离为 HTML 模板文件 |
 | 备份清理 | 每次写入时清理 | 延迟到空闲时清理 |
 
@@ -556,7 +558,8 @@ export function getStorage(config?: StorageConfig): JsonStorage {
 
 | 层面 | 措施 |
 |------|------|
-| 数据存储 | 纯本地 JSON，不上传服务器 |
+| 数据存储 | 记忆文件默认纯本地 JSON；云端 AI 请求会发送本次输入与记忆 Prompt |
 | API 密钥 | 使用 VS Code SecretStorage 加密存储 |
 | 文件访问 | 限制在 `~/.remember-me/` 目录内 |
-| 代码注入 | Webview 使用 `vscode-resource:` 协议，禁用外部脚本 |
+| 本地引擎 | 默认仅监听 `127.0.0.1`，拒绝浏览器 Origin、路径逃逸与超限请求体 |
+| 代码注入 | Webview 使用 nonce CSP，默认禁用外部脚本与资源 |

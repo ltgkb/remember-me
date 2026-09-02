@@ -213,11 +213,11 @@ Remember Me 的记忆分为四个层级：
 code ~/.remember-me
 ```
 
-所有修改会实时同步到插件中。
+修改完成后运行 **“Remember Me: 刷新记忆”**，使界面状态和索引重新载入。
 
 ### 版本控制
 
-每次更新记忆文件时，插件会自动创建备份：
+通过插件更新已有记忆记录时会创建备份：
 - 备份位置：文件同级目录下的 `.backups/` 文件夹
 - 保留数量：最近 20 个版本
 - 命名格式：`{文件名}.{ISO时间戳}`
@@ -240,8 +240,7 @@ code ~/.remember-me
 
 执行"开始对话"后，插件会：
 
-1. 创建一个新的 Markdown 文档
-2. 自动注入记忆 Prompt，例如：
+1. 请求输入本次问题，并自动构建记忆 Prompt，例如：
 
 ```markdown
 你是用户的 AI 协作助手。以下是关于这位用户的背景信息：
@@ -271,7 +270,9 @@ code ~/.remember-me
 请基于以上信息协助用户，确保回复符合用户的风格和项目上下文。
 ```
 
-3. 显示提示："🧠 Remember Me 记忆已注入"
+2. 调用已配置的 AI 提供商，在新的 Markdown 文档中显示回答
+3. 将本次问题和回答自动保存到当前项目的对话历史；未选择项目时保存到“未分类”
+4. 即时更新关键词索引，后续搜索与智能推荐无需重启
 
 ### 多场景写作示例
 
@@ -381,7 +382,7 @@ Phase 2 将支持：
 | 命令 ID | 显示名称 | 功能描述 |
 |---------|----------|----------|
 | `rememberMe.openSettings` | 打开设置 | 打开三标签页设置面板 |
-| `rememberMe.startChat` | 开始对话 | 在新文档注入记忆 Prompt |
+| `rememberMe.startChat` | 开始对话 | 调用 AI、展示回答并记录对话历史 |
 | `rememberMe.switchProject` | 切换项目 | 选择并激活其他项目 |
 | `rememberMe.searchMemory` | 搜索记忆 | 关键词全局搜索 |
 | `rememberMe.updateProfile` | 更新个人画像 | 快捷打开画像编辑页 |
@@ -391,6 +392,7 @@ Phase 2 将支持：
 | `rememberMe.refreshMemory` | 刷新记忆 | 重新加载磁盘数据 |
 | `rememberMe.viewConversationHistory` | 查看对话历史 | 浏览历史对话 |
 | `rememberMe.showAbout` | 关于 Remember Me | 显示版本信息 |
+| `rememberMe.setApiKey` | 安全设置 API 密钥 | 保存到 VS Code SecretStorage |
 
 ---
 
@@ -401,10 +403,10 @@ Phase 2 将支持：
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `rememberMe.aiProvider` | 字符串 | `deepseek` | AI 提供商：deepseek / qwen / ernie / chatglm / ollama / lmstudio |
-| `rememberMe.apiKey` | 字符串 | `""` | API 密钥（云端模型必填） |
+| `rememberMe.apiKey` | 字符串 | `""` | 仅用于迁移旧版明文密钥，已弃用 |
 | `rememberMe.apiBaseUrl` | 字符串 | `""` | 自定义 API 基础 URL |
-| `rememberMe.modelName` | 字符串 | `deepseek-chat` | 模型名称 |
-| `rememberMe.memoryPath` | 字符串 | `""` | 记忆存储路径（默认 `~/.remember-me`） |
+| `rememberMe.modelName` | 字符串 | `""` | 模型名称；留空使用提供商默认值 |
+| `rememberMe.memoryPath` | 字符串 | `""` | 记忆存储路径（默认 `~/.remember-me`，修改后重载窗口） |
 
 ### 配置示例
 
@@ -413,10 +415,11 @@ Phase 2 将支持：
 ```json
 {
   "rememberMe.aiProvider": "deepseek",
-  "rememberMe.apiKey": "sk-xxxxxxxxxxxxxxxx",
   "rememberMe.modelName": "deepseek-chat"
 }
 ```
+
+然后运行 **“Remember Me: 安全设置 API 密钥”** 输入密钥。请勿把密钥写入 `settings.json`。
 
 #### Ollama（本地）
 

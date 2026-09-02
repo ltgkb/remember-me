@@ -53,6 +53,27 @@ describe('ConversationManager', () => {
       assert.strictEqual(conv!.messages.length, 1);
     });
 
+    it('相同标题的多次对话不应互相覆盖', () => {
+      const first = manager.create('teamflow', '重复标题');
+      const second = manager.create('teamflow', '重复标题');
+      assert.notStrictEqual(first!.id, second!.id);
+      assert.strictEqual(manager.list('teamflow').length, 2);
+      assert.ok(manager.read('teamflow', first!.id));
+      assert.ok(manager.read('teamflow', second!.id));
+    });
+
+    it('带初始消息创建时应同步提取洞察', () => {
+      const timestamp = new Date().toISOString();
+      const conv = manager.create('teamflow', '架构决策', {
+        initialMessages: [
+          { role: 'user', content: '我们决定采用 FastAPI。', timestamp },
+          { role: 'assistant', content: '已记录该架构决策。', timestamp },
+        ],
+      });
+      assert.ok(conv);
+      assert.ok(conv!.insights.length > 0);
+    });
+
     it('read 应通过 ID 读取对话', () => {
       const created = manager.create('teamflow', '测试对话');
       const read = manager.read('teamflow', created!.id);

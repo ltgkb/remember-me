@@ -1,5 +1,12 @@
 name: CI
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -12,6 +19,7 @@ jobs:
   node:
     name: Node.js ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +62,7 @@ jobs:
   python:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -122,6 +131,11 @@ jobs:
         run: |
           pip install --only-binary :all: "cryptography>=42.0" "argon2-cffi>=23.1" "keyring>=25.0" "mnemonic>=0.21" pytest
 
+      - name: Install quality tooling (Python 3.12)
+        if: matrix.python-version == '3.12'
+        working-directory: packages/memory-engine
+        run: pip install ruff mypy pytest-cov
+
       # 探活导入：3.14 上可能装得上但初始化失败；输出 available 标志供条件化 crypto 测试。
       - name: Probe crypto stack availability
         id: crypto
@@ -140,13 +154,20 @@ jobs:
       # keyring 在无桌面 CI 环境探测不可用时，KeyringKeyStore 用例按 skipif 自动跳过，
       # FileKeyStore 降级路径用例照常执行（降级路径是本设计的 CI 必测项）。
       # tests/sync/（Phase 4.2.1 二轮 + 4.2.2 本地原语）与 crypto 同栈、同条件化通道，无新增依赖。
-      - name: Run crypto+sync tests (pytest)
+      - name: Run Python tests (pytest)
         if: matrix.python-version == '3.12' || steps.crypto.outputs.available == 'true'
         working-directory: packages/memory-engine
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
-        run: python -m pytest tests/crypto/ tests/sync/ -q
+        run: python -m pytest tests/ -q
+
+      - name: Run Python static checks
+        if: matrix.python-version == '3.12'
+        working-directory: packages/memory-engine
+        run: |
+          python -m ruff check src tests
+          python -m mypy src
 
       # 服务器在后台线程预加载 embedding 模型，固定 sleep 3 不可靠：
       # 先轮询 /health 直到响应（服务就绪，60s 超时）；若语义栈可用，再额外等待
@@ -215,3 +236,37 @@ jobs:
           fi
           echo "--- server-ci.log (tail) ---"
           tail -n 50 server-ci.log 2>/dev/null || true
+
+  package:
+    name: Package VSIX
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: node
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/vscode-extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/vscode-extension
+        run: npm ci --foreground-scripts --no-audit --no-fund
+
+      - name: Build installable VSIX
+        working-directory: packages/vscode-extension
+        run: |
+          mkdir -p dist
+          npm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: remember-me-vsix
+          path: packages/vscode-extension/dist/remember-me.vsix
+          if-no-files-found: error
+          retention-days: 14

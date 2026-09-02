@@ -61,6 +61,46 @@ describe('JsonStorage', () => {
       assert.strictEqual(result, null);
     });
 
+    it('读取不存在的路径不应创建目录', () => {
+      const result = storage.read('missing', 'nested', 'file.json');
+      assert.strictEqual(result, null);
+      assert.strictEqual(fs.existsSync(path.join(tempDir, 'missing')), false);
+    });
+
+    it('应拒绝父目录路径逃逸', () => {
+      assert.throws(
+        () => storage.write({ secret: true }, '..', 'escaped.json'),
+        /不能超出/
+      );
+      assert.strictEqual(fs.existsSync(path.join(tempDir, '..', 'escaped.json')), false);
+    });
+
+    it('应拒绝通过符号链接逃逸', function () {
+      if (process.platform === 'win32') {
+        this.skip();
+      }
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'remember-me-outside-'));
+      try {
+        fs.symlinkSync(outsideDir, path.join(tempDir, 'linked-outside'));
+        assert.throws(
+          () => storage.write({ secret: true }, 'linked-outside', 'escaped.json'),
+          /符号链接/
+        );
+        assert.strictEqual(fs.existsSync(path.join(outsideDir, 'escaped.json')), false);
+      } finally {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+      }
+    });
+
+    it('成功写入后应通知监听器且支持取消订阅', () => {
+      const paths: string[] = [];
+      const unsubscribe = storage.onDidWrite((relativePath) => paths.push(relativePath));
+      storage.write({ value: 1 }, 'projects', 'demo', 'context.json');
+      unsubscribe();
+      storage.write({ value: 2 }, 'profile.json');
+      assert.deepStrictEqual(paths, ['projects/demo/context.json']);
+    });
+
     it('读取损坏的 JSON 应返回 null 且不抛异常', () => {
       const filePath = path.join(tempDir, 'corrupt.json');
       fs.writeFileSync(filePath, 'not json {', 'utf-8');

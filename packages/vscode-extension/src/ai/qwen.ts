@@ -8,12 +8,12 @@ import { BaseOpenAIProvider } from './base-openai';
 import type { OpenAIProviderConfig } from './base-openai';
 
 export class QwenProvider extends BaseOpenAIProvider {
-  constructor(apiKey: string, baseURL?: string) {
+  constructor(apiKey: string, baseURL?: string, model?: string) {
     const config: OpenAIProviderConfig = {
       name: '通义千问',
       apiKey,
       baseURL: baseURL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-      defaultModel: 'qwen-turbo',
+      defaultModel: model || 'qwen-turbo',
     };
     super(config);
   }

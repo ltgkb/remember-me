@@ -8,12 +8,12 @@ import { BaseOpenAIProvider } from './base-openai';
 import type { OpenAIProviderConfig } from './base-openai';
 
 export class ErnieProvider extends BaseOpenAIProvider {
-  constructor(apiKey: string, baseURL?: string) {
+  constructor(apiKey: string, baseURL?: string, model?: string) {
     const config: OpenAIProviderConfig = {
       name: '文心一言',
       apiKey,
       baseURL: baseURL || 'https://qianfan.baidubce.com/v2',
-      defaultModel: 'ernie-speed',
+      defaultModel: model || 'ernie-speed',
     };
     super(config);
   }
