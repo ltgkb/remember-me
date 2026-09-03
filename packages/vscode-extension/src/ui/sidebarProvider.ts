@@ -20,6 +20,22 @@ type SidebarNodeType =
   | 'action-search'
   | 'action-settings';
 
+export interface SidebarProject {
+  directoryName: string;
+  context: ProjectContext;
+}
+
+/** Return only project directories that contain a usable project context. */
+export function loadSidebarProjects(storage: JsonStorage): SidebarProject[] {
+  return storage.listDir('projects').flatMap((directoryName) => {
+    const context = storage.read<ProjectContext>('projects', directoryName, 'context.json');
+    if (!context || typeof context.name !== 'string' || !context.name.trim()) {
+      return [];
+    }
+    return [{ directoryName, context }];
+  });
+}
+
 export class RememberMeSidebarProvider implements vscode.TreeDataProvider<SidebarItem> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<SidebarItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -74,7 +90,7 @@ export class RememberMeSidebarProvider implements vscode.TreeDataProvider<Sideba
     }
 
     // 项目列表节点
-    const projects = this.storage.listDir('projects');
+    const projects = loadSidebarProjects(this.storage);
     items.push(
       new SidebarItem(
         `📁 项目 (${projects.length})`,
@@ -160,18 +176,17 @@ export class RememberMeSidebarProvider implements vscode.TreeDataProvider<Sideba
 
     if (element.nodeType === 'root-projects') {
       if (!this.cacheValid || !this.projectCache) {
-        const projects = this.storage.listDir('projects');
-        this.projectCache = projects.map(name => {
-          const context = this.storage.read<ProjectContext>('projects', name, 'context.json');
+        const projects = loadSidebarProjects(this.storage);
+        this.projectCache = projects.map(({ context }) => {
           return new SidebarItem(
-            name,
+            context.name,
             vscode.TreeItemCollapsibleState.None,
             'project-item',
             context,
             {
               command: 'rememberMe.switchProject',
               title: '切换项目',
-              arguments: [name]
+              arguments: [context.name]
             }
           );
         });

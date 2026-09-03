@@ -18,7 +18,6 @@ Remember Me — 嵌入模型选型对比脚本
 import argparse
 import json
 import os
-import sys
 import time
 import warnings
 from pathlib import Path
@@ -384,8 +383,8 @@ def print_conclusion(results: list[dict[str, Any]]) -> None:
         print("**保持 `all-MiniLM-L6-v2` 作为默认模型。**")
         print(f"- 理由：同语言召回 Top-1 score 达 {mini['monolingual_top1_score']:.3f}（≥0.60），")
         print(f"  模型体积仅 {mini['disk_size_mb']:.1f} MB，P50 延迟 {mini['query_latency_ms']['p50']:.1f}ms，")
-        print(f"  对当前以中文为主的用户场景完全够用。")
-        print(f"- 行动：在 UI 中明确标注「语义搜索 Beta（all-MiniLM-L6-v2）」，管理用户预期。")
+        print("  对当前以中文为主的用户场景完全够用。")
+        print("- 行动：在 UI 中明确标注「语义搜索 Beta（all-MiniLM-L6-v2）」，管理用户预期。")
     else:
         print("**需立即评估替换。** 当前默认模型同语言召回未达标。")
 

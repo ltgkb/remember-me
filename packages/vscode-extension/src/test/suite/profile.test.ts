@@ -74,6 +74,23 @@ describe('ProfileManager', () => {
     it('read 在未初始化时应返回 null', () => {
       assert.strictEqual(manager.read(), null);
     });
+
+    it('损坏或未知值域的画像不应被视为已初始化', () => {
+      storage.write(
+        {
+          id: 'profile-corrupt',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          identity: { ...sampleIdentity, role: '未知角色' },
+          style: sampleStyle,
+        },
+        'profile.json'
+      );
+
+      assert.strictEqual(manager.read(), null);
+      assert.strictEqual(manager.isInitialized(), false);
+      assert.strictEqual(manager.update({}), null);
+    });
   });
 
   describe('更新', () => {

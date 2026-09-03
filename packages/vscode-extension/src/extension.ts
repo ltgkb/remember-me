@@ -69,7 +69,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // 注册侧边栏
   sidebarProvider = new RememberMeSidebarProvider(storage);
-  vscode.window.registerTreeDataProvider('rememberMeSidebar', sidebarProvider);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('rememberMeSidebar', sidebarProvider)
+  );
 
   // 注册状态栏
   statusBarManager = new StatusBarManager(context);
@@ -81,6 +83,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )
   );
   context.subscriptions.push(statusBarManager);
+  context.subscriptions.push({
+    dispose: () => {
+      docSaveDisposable?.dispose();
+      docSaveDisposable = undefined;
+    },
+  });
 
   // 初始化 Webview 实例
   onboardingWebview = new OnboardingWebview(context);
@@ -303,7 +311,6 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
             }
           }
         });
-        context.subscriptions.push(docSaveDisposable);
       })
     )
   );
@@ -1247,6 +1254,7 @@ export function deactivate(): void {
   }
   if (docSaveDisposable) {
     docSaveDisposable.dispose();
+    docSaveDisposable = undefined;
   }
   getLogger().info('[RememberMe] 扩展已停用');
 }

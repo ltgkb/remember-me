@@ -23,7 +23,12 @@ export class ProfileManager {
    * 读取用户画像，如果不存在则返回 null
    */
   read(): Profile | null {
-    return this.storage.read<Profile>(PROFILE_FILENAME);
+    const profile = this.storage.read<unknown>(PROFILE_FILENAME);
+    if (profile !== null && !isValidProfile(profile)) {
+      getLogger().warn('[RememberMe] 忽略结构无效的用户画像');
+      return null;
+    }
+    return profile;
   }
 
   /**
@@ -139,7 +144,7 @@ export class ProfileManager {
    * 检查是否已初始化
    */
   isInitialized(): boolean {
-    return this.storage.exists(PROFILE_FILENAME);
+    return this.read() !== null;
   }
 
   /**

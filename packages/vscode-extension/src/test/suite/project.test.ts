@@ -35,6 +35,18 @@ describe('ProjectManager', () => {
       assert.strictEqual(project!.targetUsers, '企业管理员');
     });
 
+    it('create 应在首次写入时保存去重后的竞品', () => {
+      const project = manager.create(
+        'TeamFlow',
+        '企业管理员',
+        '项目管理协作',
+        [' Slack ', '飞书', 'Slack', '']
+      );
+
+      assert.deepStrictEqual(project!.competitors, ['Slack', '飞书']);
+      assert.deepStrictEqual(manager.read('TeamFlow')!.competitors, ['Slack', '飞书']);
+    });
+
     it('create 对重复名称应返回已有项目', () => {
       const first = manager.create('TeamFlow', 'A', 'B');
       const second = manager.create('TeamFlow', 'C', 'D');
@@ -52,10 +64,53 @@ describe('ProjectManager', () => {
       assert.strictEqual(read!.name, 'TeamFlow');
     });
 
+    it('read 和 list 应忽略结构损坏的项目 JSON', () => {
+      storage.write(
+        { id: 'broken', name: 'Broken', updatedAt: 'invalid' },
+        'projects',
+        'broken',
+        'context.json'
+      );
+
+      assert.strictEqual(manager.read('broken'), null);
+      assert.deepStrictEqual(manager.list(), []);
+      assert.strictEqual(manager.setCurrent('broken'), false);
+    });
+
     it('exists 应正确判断项目存在性', () => {
       assert.strictEqual(manager.exists('TeamFlow'), false);
       manager.create('TeamFlow', 'A', 'B');
       assert.strictEqual(manager.exists('TeamFlow'), true);
+    });
+
+    it('无效项目名不应让读取类操作抛出异常', () => {
+      for (const invalidName of ['', '.', '../']) {
+        assert.strictEqual(manager.read(invalidName), null);
+        assert.strictEqual(manager.exists(invalidName), false);
+        assert.strictEqual(manager.update(invalidName, { targetUsers: 'X' }), null);
+        assert.strictEqual(manager.delete(invalidName), false);
+        assert.strictEqual(manager.setCurrent(invalidName), false);
+      }
+    });
+
+    it('list 应跳过通过符号链接逃逸的项目目录', function () {
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'remember-me-project-outside-'));
+      fs.writeFileSync(path.join(outsideDir, 'context.json'), JSON.stringify({ name: 'Outside' }));
+      const projectsDir = path.join(tempDir, 'projects');
+      fs.mkdirSync(projectsDir, { recursive: true });
+      try {
+        fs.symlinkSync(outsideDir, path.join(projectsDir, 'linked-project'), 'dir');
+      } catch {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+        this.skip();
+        return;
+      }
+
+      try {
+        assert.deepStrictEqual(manager.list(), []);
+      } finally {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+      }
     });
 
     it('update 应局部更新项目', () => {
@@ -63,6 +118,16 @@ describe('ProjectManager', () => {
       const updated = manager.update('TeamFlow', { targetUsers: '中小企业' });
       assert.strictEqual(updated!.targetUsers, '中小企业');
       assert.strictEqual(updated!.coreFeatures, 'B');
+    });
+
+    it('update 不应允许项目名脱离存储目录', () => {
+      manager.create('TeamFlow', 'A', 'B');
+
+      const updated = manager.update('TeamFlow', { name: 'Renamed' } as never);
+
+      assert.strictEqual(updated!.name, 'TeamFlow');
+      assert.strictEqual(manager.read('TeamFlow')!.name, 'TeamFlow');
+      assert.strictEqual(manager.read('Renamed'), null);
     });
 
     it('delete 应删除项目', () => {

@@ -30,6 +30,17 @@ describe('SearchSettingsManager', () => {
     assert.strictEqual(settings.mode, 'keyword');
   });
 
+  it('损坏设置应回退且不应伪造语义可用状态', () => {
+    storage.write('broken', 'search-settings.json');
+    assert.deepStrictEqual(manager.read(), { mode: 'keyword' });
+
+    storage.write(
+      { mode: 'hybrid', semanticAvailable: 'yes' },
+      'search-settings.json'
+    );
+    assert.deepStrictEqual(manager.read(), { mode: 'hybrid' });
+  });
+
   it('setMode 应持久化搜索模式', () => {
     manager.setMode('semantic');
     // 重新构造一个 manager 模拟进程重启

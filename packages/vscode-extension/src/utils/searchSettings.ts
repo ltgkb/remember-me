@@ -27,11 +27,23 @@ export class SearchSettingsManager {
   }
 
   read(): SearchSettings {
-    const data = this.storage.read<SearchSettings>(FILENAME);
-    if (!data || (data.mode !== 'keyword' && data.mode !== 'semantic' && data.mode !== 'hybrid')) {
+    const data = this.storage.read<unknown>(FILENAME);
+    if (!data || typeof data !== 'object') {
       return { mode: 'keyword' };
     }
-    return { mode: data.mode, semanticAvailable: data.semanticAvailable };
+    const candidate = data as Partial<SearchSettings>;
+    if (
+      candidate.mode !== 'keyword' &&
+      candidate.mode !== 'semantic' &&
+      candidate.mode !== 'hybrid'
+    ) {
+      return { mode: 'keyword' };
+    }
+    const settings: SearchSettings = { mode: candidate.mode };
+    if (typeof candidate.semanticAvailable === 'boolean') {
+      settings.semanticAvailable = candidate.semanticAvailable;
+    }
+    return settings;
   }
 
   setMode(mode: SearchMode): SearchSettings {
