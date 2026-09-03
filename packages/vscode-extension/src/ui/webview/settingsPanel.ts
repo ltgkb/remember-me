@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import type { JsonStorage } from '../../memory/storage';
 import { ProjectManager } from '../../memory/project';
+import { ProfileManager } from '../../memory/profile';
 import type { Profile, IdentityInfo, StyleInfo } from '../../types';
 
 export class SettingsPanelWebview {
@@ -133,9 +134,6 @@ export class SettingsPanelWebview {
       return;
     }
 
-    const now = new Date().toISOString();
-    const existing = this.storage.read<Profile>('profile.json');
-
     const identity: IdentityInfo = {
       role: (data.role as IdentityInfo['role']) || '其他',
       experience: (data.experience as IdentityInfo['experience']) || '新手',
@@ -152,19 +150,17 @@ export class SettingsPanelWebview {
       responseStyle: (data.responseStyle as StyleInfo['responseStyle']) || '先框架再细节'
     };
 
-    const profile: Profile = existing
-      ? { ...existing, identity, style, updatedAt: now }
-      : {
-          id: `profile-${Date.now()}`,
-          createdAt: now,
-          updatedAt: now,
-          identity,
-          style
-        };
+    const profileManager = new ProfileManager(this.storage);
+    const existing = profileManager.read();
+    let profile: Profile | null;
+    if (existing) {
+      profile = profileManager.update({ identity, style });
+    } else {
+      profileManager.create(identity, style);
+      profile = profileManager.read();
+    }
 
-    const success = this.storage.write(profile, 'profile.json');
-
-    if (success) {
+    if (profile) {
       await this.panel.webview.postMessage({ command: 'saveSuccess', type: 'profile' });
       void vscode.window.showInformationMessage('✅ 个人画像已保存');
       this.onRefresh?.();
