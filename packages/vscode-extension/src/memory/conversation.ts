@@ -7,6 +7,7 @@ import type { Conversation, ChatMessage, Decision, Insight } from '../types';
 import { getInfoExtractor } from './extractor';
 import { getLogger } from '../utils/logger';
 import { JsonStorage, getStorage } from './storage';
+import { isValidConversation } from './conversationGuard';
 
 const CONVERSATIONS_DIR = 'conversations';
 
@@ -77,7 +78,7 @@ export class ConversationManager {
       if (!file.endsWith('.json')) {
         continue;
       }
-      const data = this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, file);
+      const data = this.readByFilename(projectName, file);
       if (data && data.id === conversationId) {
         return data;
       }
@@ -94,7 +95,17 @@ export class ConversationManager {
     if (!filename.endsWith('.json')) {
       filename += '.json';
     }
-    return this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, filename);
+    const conversation = this.storage.read<unknown>(
+      'projects',
+      safeName,
+      CONVERSATIONS_DIR,
+      filename
+    );
+    if (conversation !== null && !isValidConversation(conversation)) {
+      getLogger().warn(`[RememberMe] 忽略结构无效的对话文件："${filename}"`);
+      return null;
+    }
+    return conversation;
   }
 
   /**
@@ -153,7 +164,7 @@ export class ConversationManager {
       if (!file.endsWith('.json') || file === '.gitkeep') {
         continue;
       }
-      const data = this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, file);
+      const data = this.readByFilename(projectName, file);
       if (data) {
         conversations.push({ filename: file, conversation: data });
       }

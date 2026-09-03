@@ -87,6 +87,29 @@ describe('ConversationManager', () => {
       assert.strictEqual(read!.id, created!.id);
     });
 
+    it('读取和列表应忽略结构损坏的对话 JSON', () => {
+      storage.write(
+        {
+          id: 'broken-conversation',
+          title: '损坏记录',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: null,
+          keyDecisions: [],
+          insights: [],
+          tags: [],
+        },
+        'projects',
+        'teamflow',
+        'conversations',
+        'broken.json'
+      );
+
+      assert.strictEqual(manager.readByFilename('teamflow', 'broken.json'), null);
+      assert.strictEqual(manager.read('teamflow', 'broken-conversation'), null);
+      assert.deepStrictEqual(manager.list('teamflow'), []);
+    });
+
     it('update 应更新对话内容', () => {
       const created = manager.create('teamflow', '原标题');
       const updated = manager.update('teamflow', created!.id, {
