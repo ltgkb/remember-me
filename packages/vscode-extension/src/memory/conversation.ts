@@ -41,6 +41,10 @@ export class ConversationManager {
     options?: { tags?: string[]; initialMessages?: ChatMessage[] }
   ): Conversation | null {
     const safeName = this.sanitizeDirName(projectName);
+    if (!safeName) {
+      getLogger().warn('[RememberMe] 创建对话失败：项目名称无效');
+      return null;
+    }
     const now = new Date().toISOString();
 
     const conversation: Conversation = {
@@ -71,13 +75,22 @@ export class ConversationManager {
    */
   read(projectName: string, conversationId: string): Conversation | null {
     const safeName = this.sanitizeDirName(projectName);
-    const files = this.storage.listDir('projects', safeName, CONVERSATIONS_DIR);
+    if (!safeName || !conversationId) {
+      return null;
+    }
+    let files: string[];
+    try {
+      files = this.storage.listDir('projects', safeName, CONVERSATIONS_DIR);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法读取项目对话："${projectName}"`, error);
+      return null;
+    }
 
     for (const file of files) {
       if (!file.endsWith('.json')) {
         continue;
       }
-      const data = this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, file);
+      const data = this.readByFilename(projectName, file);
       if (data && data.id === conversationId) {
         return data;
       }
@@ -91,10 +104,22 @@ export class ConversationManager {
    */
   readByFilename(projectName: string, filename: string): Conversation | null {
     const safeName = this.sanitizeDirName(projectName);
+    if (!safeName || !filename) {
+      return null;
+    }
     if (!filename.endsWith('.json')) {
       filename += '.json';
     }
-    return this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, filename);
+    if (!/^[^/\\\0]+\.json$/.test(filename)) {
+      getLogger().warn('[RememberMe] 拒绝读取超出对话目录的文件名');
+      return null;
+    }
+    try {
+      return this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, filename);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法读取对话文件："${filename}"`, error);
+      return null;
+    }
   }
 
   /**
@@ -146,14 +171,23 @@ export class ConversationManager {
    */
   list(projectName: string): Array<{ filename: string; conversation: Conversation }> {
     const safeName = this.sanitizeDirName(projectName);
-    const files = this.storage.listDir('projects', safeName, CONVERSATIONS_DIR);
+    if (!safeName) {
+      return [];
+    }
+    let files: string[];
+    try {
+      files = this.storage.listDir('projects', safeName, CONVERSATIONS_DIR);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法列出项目对话："${projectName}"`, error);
+      return [];
+    }
     const conversations: Array<{ filename: string; conversation: Conversation }> = [];
 
     for (const file of files) {
       if (!file.endsWith('.json') || file === '.gitkeep') {
         continue;
       }
-      const data = this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, file);
+      const data = this.readByFilename(projectName, file);
       if (data) {
         conversations.push({ filename: file, conversation: data });
       }
@@ -534,13 +568,22 @@ export class ConversationManager {
 
   private findFilename(projectName: string, conversationId: string): string | null {
     const safeName = this.sanitizeDirName(projectName);
-    const files = this.storage.listDir('projects', safeName, CONVERSATIONS_DIR);
+    if (!safeName || !conversationId) {
+      return null;
+    }
+    let files: string[];
+    try {
+      files = this.storage.listDir('projects', safeName, CONVERSATIONS_DIR);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法查找项目对话："${projectName}"`, error);
+      return null;
+    }
 
     for (const file of files) {
       if (!file.endsWith('.json')) {
         continue;
       }
-      const data = this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, file);
+      const data = this.readByFilename(projectName, file);
       if (data && data.id === conversationId) {
         return file;
       }
