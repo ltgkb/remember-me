@@ -91,6 +91,11 @@
         "icon": "$(pulse)"
       },
       {
+        "command": "rememberMe.exportAllData",
+        "title": "导出全部记忆数据",
+        "icon": "$(export)"
+      },
+      {
         "command": "rememberMe.setApiKey",
         "title": "安全设置 API 密钥",
         "icon": "$(key)"

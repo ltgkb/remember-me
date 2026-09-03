@@ -32,6 +32,7 @@ import type { DetectedUpdate } from './memory/updateDetector';
 import { getSearchSettings } from './utils/searchSettings';
 import { createStartupStatusState } from './utils/startupState';
 import { collectDiagnosticSnapshot, renderDiagnosticMarkdown } from './utils/diagnostics';
+import { createMemoryDataExport } from './memory/dataExport';
 
 // ── 全局状态 ──
 let sidebarProvider: RememberMeSidebarProvider;
@@ -466,7 +467,8 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
           { label: '$(search) 搜索记忆', description: 'searchMemory' },
           { label: '$(gear) 打开设置', description: 'openSettings' },
           { label: '$(history) 查看对话历史', description: 'viewConversationHistory' },
-          { label: '$(pulse) 运行诊断', description: 'showDiagnostics' }
+          { label: '$(pulse) 运行诊断', description: 'showDiagnostics' },
+          { label: '$(export) 导出全部记忆数据', description: 'exportAllData' }
         ];
         const selected = await vscode.window.showQuickPick(items, {
           placeHolder: '选择操作'
@@ -585,7 +587,54 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
     )
   );
 
-  // 12b. API 密钥使用 VS Code SecretStorage 保存，避免明文落入 settings.json。
+  // 12b. 导出用户拥有的记忆数据；密钥、缓存、内置模板和备份不在导出范围内。
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'rememberMe.exportAllData',
+      runWithErrorHandler(async () => {
+        const exportedAt = new Date().toISOString();
+        const filenameDate = exportedAt.slice(0, 10);
+        const target = await vscode.window.showSaveDialog({
+          title: '导出 Remember Me 记忆数据',
+          defaultUri: vscode.Uri.file(
+            path.join(os.homedir(), `remember-me-export-${filenameDate}.json`)
+          ),
+          filters: { JSON: ['json'] },
+          saveLabel: '导出',
+        });
+        if (!target) {
+          return;
+        }
+
+        const bundle = createMemoryDataExport(
+          storage,
+          String(context.extension.packageJSON.version || 'unknown'),
+          exportedAt
+        );
+        await vscode.workspace.fs.writeFile(
+          target,
+          Buffer.from(`${JSON.stringify(bundle, null, 2)}\n`, 'utf8')
+        );
+        const conversationCount = bundle.data.projects.reduce(
+          (total, project) => total + project.conversations.length,
+          0
+        );
+        const warning = bundle.skippedPaths.length > 0
+          ? `；${bundle.skippedPaths.length} 个无法读取的路径已跳过`
+          : '';
+        void vscode.window.showInformationMessage(
+          `记忆数据已导出：${bundle.data.projects.length} 个项目、${conversationCount} 条对话${warning}`,
+          '打开文件'
+        ).then((selection) => {
+          if (selection === '打开文件') {
+            void vscode.window.showTextDocument(target);
+          }
+        });
+      })
+    )
+  );
+
+  // 12c. API 密钥使用 VS Code SecretStorage 保存，避免明文落入 settings.json。
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'rememberMe.setApiKey',
