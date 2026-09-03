@@ -6,6 +6,7 @@
 import type { ProjectContext, Decision, TermDefinition } from '../types';
 import { getLogger } from '../utils/logger';
 import { JsonStorage, getStorage } from './storage';
+import { isValidProjectContext } from './projectGuard';
 
 const CONTEXT_FILENAME = 'context.json';
 const CONVERSATIONS_DIR = 'conversations';
@@ -62,7 +63,12 @@ export class ProjectManager {
    */
   read(name: string): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    const project = this.storage.read<unknown>('projects', safeName, CONTEXT_FILENAME);
+    if (project !== null && !isValidProjectContext(project)) {
+      getLogger().warn(`[RememberMe] 忽略结构无效的项目上下文："${name}"`);
+      return null;
+    }
+    return project;
   }
 
   /**
@@ -133,7 +139,7 @@ export class ProjectManager {
     const projects: Array<{ name: string; context: ProjectContext }> = [];
 
     for (const name of projectNames) {
-      const context = this.storage.read<ProjectContext>('projects', name, CONTEXT_FILENAME);
+      const context = this.read(name);
       if (context) {
         projects.push({ name: context.name, context });
       }
@@ -156,7 +162,7 @@ export class ProjectManager {
    * 设置当前活跃项目
    */
   setCurrent(name: string): boolean {
-    if (!this.exists(name)) {
+    if (!this.read(name)) {
       getLogger().warn(`[RememberMe] 设置当前项目失败："${name}" 不存在`);
       return false;
     }
