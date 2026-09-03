@@ -64,6 +64,19 @@ describe('ProjectManager', () => {
       assert.strictEqual(read!.name, 'TeamFlow');
     });
 
+    it('read 和 list 应忽略结构损坏的项目 JSON', () => {
+      storage.write(
+        { id: 'broken', name: 'Broken', updatedAt: 'invalid' },
+        'projects',
+        'broken',
+        'context.json'
+      );
+
+      assert.strictEqual(manager.read('broken'), null);
+      assert.deepStrictEqual(manager.list(), []);
+      assert.strictEqual(manager.setCurrent('broken'), false);
+    });
+
     it('exists 应正确判断项目存在性', () => {
       assert.strictEqual(manager.exists('TeamFlow'), false);
       manager.create('TeamFlow', 'A', 'B');
