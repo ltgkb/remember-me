@@ -35,6 +35,18 @@ describe('ProjectManager', () => {
       assert.strictEqual(project!.targetUsers, '企业管理员');
     });
 
+    it('create 应在首次写入时保存去重后的竞品', () => {
+      const project = manager.create(
+        'TeamFlow',
+        '企业管理员',
+        '项目管理协作',
+        [' Slack ', '飞书', 'Slack', '']
+      );
+
+      assert.deepStrictEqual(project!.competitors, ['Slack', '飞书']);
+      assert.deepStrictEqual(manager.read('TeamFlow')!.competitors, ['Slack', '飞书']);
+    });
+
     it('create 对重复名称应返回已有项目', () => {
       const first = manager.create('TeamFlow', 'A', 'B');
       const second = manager.create('TeamFlow', 'C', 'D');
