@@ -62,7 +62,15 @@ export class ProjectManager {
    */
   read(name: string): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    if (!safeName) {
+      return null;
+    }
+    try {
+      return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法读取项目："${name}"`, error);
+      return null;
+    }
   }
 
   /**
@@ -122,7 +130,15 @@ export class ProjectManager {
    */
   exists(name: string): boolean {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.exists('projects', safeName, CONTEXT_FILENAME);
+    if (!safeName) {
+      return false;
+    }
+    try {
+      return this.storage.exists('projects', safeName, CONTEXT_FILENAME);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法检查项目："${name}"`, error);
+      return false;
+    }
   }
 
   /**
@@ -133,7 +149,7 @@ export class ProjectManager {
     const projects: Array<{ name: string; context: ProjectContext }> = [];
 
     for (const name of projectNames) {
-      const context = this.storage.read<ProjectContext>('projects', name, CONTEXT_FILENAME);
+      const context = this.read(name);
       if (context) {
         projects.push({ name: context.name, context });
       }
