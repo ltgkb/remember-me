@@ -23,7 +23,12 @@ export class ProjectManager {
   /**
    * 创建新项目
    */
-  create(name: string, targetUsers: string, coreFeatures: string): ProjectContext | null {
+  create(
+    name: string,
+    targetUsers: string,
+    coreFeatures: string,
+    competitors: string[] = []
+  ): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
     if (!safeName) {
       getLogger().error('[RememberMe] 项目名称无效');
@@ -46,7 +51,7 @@ export class ProjectManager {
       coreFeatures,
       decisions: [],
       terminology: [],
-      competitors: [],
+      competitors: [...new Set(competitors.map((item) => item.trim()).filter(Boolean))],
     };
 
     const success = this.storage.write(project, 'projects', safeName, CONTEXT_FILENAME);
