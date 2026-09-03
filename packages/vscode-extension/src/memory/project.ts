@@ -9,6 +9,12 @@ import { JsonStorage, getStorage } from './storage';
 
 const CONTEXT_FILENAME = 'context.json';
 const CONVERSATIONS_DIR = 'conversations';
+const CURRENT_PROJECT_FILENAME = 'current-project.json';
+
+interface CurrentProjectState {
+  name: string;
+  updatedAt: string;
+}
 
 export class ProjectManager {
   private storage: JsonStorage;
@@ -16,6 +22,7 @@ export class ProjectManager {
 
   constructor(storage?: JsonStorage) {
     this.storage = storage || getStorage();
+    this.restoreCurrentProject();
   }
 
   // ==================== 项目 CRUD ====================
@@ -111,7 +118,7 @@ export class ProjectManager {
     }
 
     if (this.currentProjectName === name) {
-      this.currentProjectName = null;
+      this.clearCurrent();
     }
 
     return true;
@@ -160,6 +167,14 @@ export class ProjectManager {
       getLogger().warn(`[RememberMe] 设置当前项目失败："${name}" 不存在`);
       return false;
     }
+    const state: CurrentProjectState = {
+      name,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!this.storage.write(state, CURRENT_PROJECT_FILENAME)) {
+      getLogger().error(`[RememberMe] 无法持久化当前项目："${name}"`);
+      return false;
+    }
     this.currentProjectName = name;
     return true;
   }
@@ -186,6 +201,7 @@ export class ProjectManager {
    */
   clearCurrent(): void {
     this.currentProjectName = null;
+    this.storage.delete(CURRENT_PROJECT_FILENAME);
   }
 
   // ==================== 决策管理 ====================
@@ -361,6 +377,24 @@ export class ProjectManager {
   }
 
   // ==================== 工具方法 ====================
+
+  private restoreCurrentProject(): void {
+    const state = this.storage.read<CurrentProjectState>(CURRENT_PROJECT_FILENAME);
+    if (state && typeof state.name === 'string' && state.name.trim()) {
+      try {
+        if (this.exists(state.name)) {
+          this.currentProjectName = state.name;
+          return;
+        }
+      } catch (error) {
+        getLogger().warn('[RememberMe] 当前项目状态无效，将自动清理', error);
+      }
+    }
+
+    if (this.storage.exists(CURRENT_PROJECT_FILENAME)) {
+      this.storage.delete(CURRENT_PROJECT_FILENAME);
+    }
+  }
 
   private sanitizeDirName(name: string): string {
     // 将项目名称转为安全的目录名：小写，替换特殊字符

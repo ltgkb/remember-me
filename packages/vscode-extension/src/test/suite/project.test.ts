@@ -93,6 +93,15 @@ describe('ProjectManager', () => {
       assert.strictEqual(manager.getCurrentName(), 'TeamFlow');
     });
 
+    it('新实例应恢复上次选择的当前项目', () => {
+      manager.setCurrent('TeamFlow');
+
+      const restored = new ProjectManager(storage);
+
+      assert.strictEqual(restored.getCurrentName(), 'TeamFlow');
+      assert.strictEqual(restored.getCurrent()?.name, 'TeamFlow');
+    });
+
     it('setCurrent 对不存在的项目应返回 false', () => {
       const success = manager.setCurrent('NotExist');
       assert.strictEqual(success, false);
@@ -108,6 +117,37 @@ describe('ProjectManager', () => {
       manager.setCurrent('TeamFlow');
       manager.clearCurrent();
       assert.strictEqual(manager.getCurrent(), null);
+      assert.strictEqual(storage.exists('current-project.json'), false);
+    });
+
+    it('初始化时应清理指向不存在项目的状态', () => {
+      storage.write(
+        { name: 'MissingProject', updatedAt: new Date().toISOString() },
+        'current-project.json'
+      );
+
+      const restored = new ProjectManager(storage);
+
+      assert.strictEqual(restored.getCurrent(), null);
+      assert.strictEqual(storage.exists('current-project.json'), false);
+    });
+
+    it('初始化时不应因非法项目名状态崩溃', () => {
+      storage.write({ name: '.', updatedAt: new Date().toISOString() }, 'current-project.json');
+
+      const restored = new ProjectManager(storage);
+
+      assert.strictEqual(restored.getCurrent(), null);
+      assert.strictEqual(storage.exists('current-project.json'), false);
+    });
+
+    it('删除当前项目时应同时清理持久化选择', () => {
+      manager.setCurrent('TeamFlow');
+
+      manager.delete('TeamFlow');
+
+      assert.strictEqual(manager.getCurrent(), null);
+      assert.strictEqual(storage.exists('current-project.json'), false);
     });
   });
 
