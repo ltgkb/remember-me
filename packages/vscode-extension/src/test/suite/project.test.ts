@@ -70,6 +70,36 @@ describe('ProjectManager', () => {
       assert.strictEqual(manager.exists('TeamFlow'), true);
     });
 
+    it('无效项目名不应让读取类操作抛出异常', () => {
+      for (const invalidName of ['', '.', '../']) {
+        assert.strictEqual(manager.read(invalidName), null);
+        assert.strictEqual(manager.exists(invalidName), false);
+        assert.strictEqual(manager.update(invalidName, { targetUsers: 'X' }), null);
+        assert.strictEqual(manager.delete(invalidName), false);
+        assert.strictEqual(manager.setCurrent(invalidName), false);
+      }
+    });
+
+    it('list 应跳过通过符号链接逃逸的项目目录', function () {
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'remember-me-project-outside-'));
+      fs.writeFileSync(path.join(outsideDir, 'context.json'), JSON.stringify({ name: 'Outside' }));
+      const projectsDir = path.join(tempDir, 'projects');
+      fs.mkdirSync(projectsDir, { recursive: true });
+      try {
+        fs.symlinkSync(outsideDir, path.join(projectsDir, 'linked-project'), 'dir');
+      } catch {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+        this.skip();
+        return;
+      }
+
+      try {
+        assert.deepStrictEqual(manager.list(), []);
+      } finally {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+      }
+    });
+
     it('update 应局部更新项目', () => {
       manager.create('TeamFlow', 'A', 'B');
       const updated = manager.update('TeamFlow', { targetUsers: '中小企业' });
