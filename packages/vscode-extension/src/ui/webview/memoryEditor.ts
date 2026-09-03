@@ -24,7 +24,6 @@ export class MemoryEditorWebview extends BaseWebview {
   private searchResults: SearchResult[] = [];
   private projectList: Array<{ id: string; name: string }> = [];
   private isSearching: boolean = false;
-  private refreshTimer?: ReturnType<typeof setTimeout>;
 
   constructor(context: vscode.ExtensionContext) {
     super(context);
@@ -43,15 +42,15 @@ export class MemoryEditorWebview extends BaseWebview {
   private loadProjects(): void {
     const storage = getStorage();
     const projectsDir = storage.listDir('projects');
-    this.projectList = projectsDir.map(id => {
+    this.projectList = projectsDir.flatMap(id => {
       const ctx = storage.read<ProjectContext>('projects', id, 'context.json');
-      return { id, name: ctx?.name || id };
+      return ctx ? [{ id, name: ctx.name || id }] : [];
     });
   }
 
   protected getHtml(webview: vscode.Webview): string {
     const projectOptions = this.projectList.map(p =>
-      `<option value="${p.id}" ${this.selectedProject === p.id ? 'selected' : ''}>${this.escapeHtml(p.name)}</option>`
+      `<option value="${this.escapeHtml(p.id)}" ${this.selectedProject === p.id ? 'selected' : ''}>${this.escapeHtml(p.name)}</option>`
     ).join('');
 
     const tagOptions = [
@@ -74,26 +73,26 @@ export class MemoryEditorWebview extends BaseWebview {
 
       <div class="card">
         <div class="search-box">
-          <input type="text" id="searchInput" placeholder="输入关键词搜索记忆..." value="${this.escapeHtml(this.searchQuery)}" oninput="scheduleInputSearch()" onkeydown="if(event.key==='Enter') doSearch()" />
+          <input type="text" id="searchInput" placeholder="输入关键词搜索记忆..." value="${this.escapeHtml(this.searchQuery)}" />
         </div>
         <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
           <div style="flex: 1;">
             <label style="margin-bottom: var(--spacing-xs); display: block;">项目筛选</label>
-            <select id="projectFilter" onchange="updateFilter()">
+            <select id="projectFilter">
               <option value="all" ${this.selectedProject === 'all' ? 'selected' : ''}>全部项目</option>
               ${projectOptions}
             </select>
           </div>
           <div style="flex: 1;">
             <label style="margin-bottom: var(--spacing-xs); display: block;">标签筛选</label>
-            <select id="tagFilter" onchange="updateFilter()">
+            <select id="tagFilter">
               ${tagOptions}
             </select>
           </div>
         </div>
         <div class="btn-group" style="margin-top: var(--spacing-md); margin-bottom: 0;">
-          <button class="btn btn-primary" onclick="doSearch()">🔍 搜索</button>
-          <button class="btn btn-secondary" onclick="clearSearch()">清除</button>
+          <button class="btn btn-primary" data-action="search">🔍 搜索</button>
+          <button class="btn btn-secondary" data-action="clear-search">清除</button>
         </div>
       </div>
 
@@ -102,21 +101,7 @@ export class MemoryEditorWebview extends BaseWebview {
       </div>
 
       <script>
-        window.handleExtensionMessage = function(message) {
-          if (message.command === 'updateResults') {
-            const el = document.getElementById('results-area');
-            if (el) { el.innerHTML = message.html; }
-          }
-        };
-
-        let searchTimer;
-        function scheduleInputSearch() {
-          clearTimeout(searchTimer);
-          searchTimer = setTimeout(doSearch, 300);
-        }
-
         function doSearch() {
-          clearTimeout(searchTimer);
           const keyword = document.getElementById('searchInput').value;
           postMessage('search', { query: keyword });
         }
@@ -141,6 +126,22 @@ export class MemoryEditorWebview extends BaseWebview {
         function copyToPrompt(content) {
           postMessage('copyToPrompt', { content });
         }
+
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('keydown', event => {
+          if (event.key === 'Enter') doSearch();
+        });
+        document.getElementById('projectFilter').addEventListener('change', updateFilter);
+        document.getElementById('tagFilter').addEventListener('change', updateFilter);
+        document.addEventListener('click', event => {
+          const target = event.target.closest('[data-action]');
+          if (!target) return;
+          const action = target.dataset.action;
+          if (action === 'search') doSearch();
+          if (action === 'clear-search') clearSearch();
+          if (action === 'view-detail') viewDetail(target.dataset.resultType, target.dataset.title);
+          if (action === 'copy-to-prompt') copyToPrompt(target.dataset.content);
+        });
       </script>
     `;
 
@@ -252,8 +253,8 @@ export class MemoryEditorWebview extends BaseWebview {
             ${r.tags?.map(t => `<span class="tag">${this.escapeHtml(t)}</span>`).join('') || ''}
           </div>
           <div class="result-actions">
-            <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem;" onclick="viewDetail('${r.type}', '${this.escapeHtml(r.title)}')">查看详情</button>
-            <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem;" onclick="copyToPrompt('${this.escapeHtml(r.content.replace(/'/g, "\\'"))}')">复制到提示</button>
+            <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem;" data-action="view-detail" data-result-type="${r.type}" data-title="${this.escapeHtml(r.title)}">查看详情</button>
+            <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem;" data-action="copy-to-prompt" data-content="${this.escapeHtml(r.content)}">复制到提示</button>
           </div>
         </div>
       `).join('');
@@ -471,13 +472,13 @@ export class MemoryEditorWebview extends BaseWebview {
     switch (msg.command) {
       case 'search':
         this.searchQuery = (msg.query as string) || '';
-        this.scheduleRefresh();
+        this.refreshResults();
         break;
 
       case 'updateFilter':
         this.selectedProject = (msg.project as string) || 'all';
         this.selectedTag = (msg.tag as string) || 'all';
-        this.scheduleRefresh();
+        this.refreshResults();
         break;
 
       case 'clearSearch':
@@ -504,25 +505,15 @@ export class MemoryEditorWebview extends BaseWebview {
   }
 
   /**
-   * 防抖刷新：避免每次按键都全量重新渲染 HTML
-   */
-  private scheduleRefresh(): void {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-    }
-    this.refreshTimer = setTimeout(() => this.refreshResults(), 250);
-  }
-
-  /**
-   * 仅更新结果区域，保留输入框焦点和滚动位置
+   * 重建 Webview，避免通过 innerHTML 注入扩展侧生成的动态标记。
+   * 搜索仅在按钮或 Enter 时触发，因此重建不会打断连续输入。
    */
   private refreshResults(): void {
     this.isSearching = true;
     this.performSearch();
     this.isSearching = false;
-    this.postMessage({
-      command: 'updateResults',
-      html: this.renderSearchResults(),
-    });
+    if (this.panel) {
+      this.panel.webview.html = this.getHtml(this.panel.webview);
+    }
   }
 }
