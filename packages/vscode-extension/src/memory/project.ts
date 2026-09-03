@@ -30,7 +30,12 @@ export class ProjectManager {
   /**
    * 创建新项目
    */
-  create(name: string, targetUsers: string, coreFeatures: string): ProjectContext | null {
+  create(
+    name: string,
+    targetUsers: string,
+    coreFeatures: string,
+    competitors: string[] = []
+  ): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
     if (!safeName) {
       getLogger().error('[RememberMe] 项目名称无效');
@@ -53,7 +58,7 @@ export class ProjectManager {
       coreFeatures,
       decisions: [],
       terminology: [],
-      competitors: [],
+      competitors: [...new Set(competitors.map((item) => item.trim()).filter(Boolean))],
     };
 
     const success = this.storage.write(project, 'projects', safeName, CONTEXT_FILENAME);
@@ -69,13 +74,24 @@ export class ProjectManager {
    */
   read(name: string): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    if (!safeName) {
+      return null;
+    }
+    try {
+      return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法读取项目："${name}"`, error);
+      return null;
+    }
   }
 
   /**
    * 更新项目上下文（局部更新）
    */
-  update(name: string, updates: Partial<Omit<ProjectContext, 'id' | 'createdAt'>>): ProjectContext | null {
+  update(
+    name: string,
+    updates: Partial<Omit<ProjectContext, 'id' | 'name' | 'createdAt'>>
+  ): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
     const existing = this.read(name);
     if (!existing) {
@@ -90,6 +106,7 @@ export class ProjectManager {
       ...existing,
       ...updates,
       id: existing.id,
+      name: existing.name,
       createdAt: existing.createdAt,
       updatedAt: new Date().toISOString(),
     };
@@ -129,7 +146,15 @@ export class ProjectManager {
    */
   exists(name: string): boolean {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.exists('projects', safeName, CONTEXT_FILENAME);
+    if (!safeName) {
+      return false;
+    }
+    try {
+      return this.storage.exists('projects', safeName, CONTEXT_FILENAME);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法检查项目："${name}"`, error);
+      return false;
+    }
   }
 
   /**
@@ -140,7 +165,7 @@ export class ProjectManager {
     const projects: Array<{ name: string; context: ProjectContext }> = [];
 
     for (const name of projectNames) {
-      const context = this.storage.read<ProjectContext>('projects', name, CONTEXT_FILENAME);
+      const context = this.read(name);
       if (context) {
         projects.push({ name: context.name, context });
       }
