@@ -30,6 +30,7 @@ import { AIProviderManager, getApiKeySecretKey, type ProviderType } from './ai/p
 import { getConversationManager } from './memory/conversation';
 import type { DetectedUpdate } from './memory/updateDetector';
 import { getSearchSettings } from './utils/searchSettings';
+import { createStartupStatusState } from './utils/startupState';
 
 // ── 全局状态 ──
 let sidebarProvider: RememberMeSidebarProvider;
@@ -59,6 +60,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     basePath: expandedMemoryPath || path.join(os.homedir(), '.remember-me'),
   });
   const basePath = storage.getBasePath();
+  // Seed all storage-backed singletons with the configured memory directory.
+  const profileManager = getProfileManager(storage);
+  const projectManager = getProjectManager(storage);
+  const searchSettings = getSearchSettings(storage);
 
   // 注册侧边栏
   sidebarProvider = new RememberMeSidebarProvider(storage);
@@ -68,6 +73,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // 注册状态栏
   statusBarManager = new StatusBarManager(context);
+  statusBarManager.updateState(
+    createStartupStatusState(
+      profileManager.read(),
+      projectManager.getCurrent(),
+      searchSettings.read().mode
+    )
+  );
   context.subscriptions.push(statusBarManager);
 
   // 初始化 Webview 实例
