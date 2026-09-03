@@ -86,6 +86,11 @@
         "title": "关于 Remember Me"
       },
       {
+        "command": "rememberMe.showDiagnostics",
+        "title": "运行诊断",
+        "icon": "$(pulse)"
+      },
+      {
         "command": "rememberMe.setApiKey",
         "title": "安全设置 API 密钥",
         "icon": "$(key)"
