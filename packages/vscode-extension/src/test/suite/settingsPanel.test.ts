@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { JsonStorage } from '../../memory/storage';
 import { SettingsPanelWebview } from '../../ui/webview/settingsPanel';
 
-describe('SettingsPanelWebview project creation', () => {
+describe('SettingsPanelWebview persistence', () => {
   let tempDir: string;
   let storage: JsonStorage;
 
@@ -71,5 +71,37 @@ describe('SettingsPanelWebview project creation', () => {
     );
     assert.strictEqual(project?.targetUsers, '原用户');
     assert.strictEqual(project?.coreFeatures, '原功能');
+  });
+
+  it('更新画像应保留身份字段并创建备份', async () => {
+    const panel = SettingsPanelWebview.currentPanel as unknown as {
+      saveProfile(data: Record<string, unknown>): Promise<void>;
+    };
+    const initial = {
+      role: '产品经理',
+      experience: '3-5年',
+      industry: 'SaaS',
+      background: '技术',
+      documentStructure: '先背景后功能',
+      detailLevel: '标准（3-5页）',
+      language: '中文',
+      tone: '正式',
+      responseStyle: '先框架再细节',
+      specialHabits: ['用户故事'],
+    };
+
+    await panel.saveProfile(initial);
+    const before = storage.read<{ id: string; createdAt: string }>('profile.json')!;
+    await panel.saveProfile({ ...initial, role: '运营' });
+    const after = storage.read<{
+      id: string;
+      createdAt: string;
+      identity: { role: string };
+    }>('profile.json')!;
+
+    assert.strictEqual(after.id, before.id);
+    assert.strictEqual(after.createdAt, before.createdAt);
+    assert.strictEqual(after.identity.role, '运营');
+    assert.ok(storage.listDir('.backups').some((name) => name.startsWith('profile.json.')));
   });
 });
