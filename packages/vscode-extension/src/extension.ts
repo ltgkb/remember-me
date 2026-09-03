@@ -31,6 +31,7 @@ import { getConversationManager } from './memory/conversation';
 import type { DetectedUpdate } from './memory/updateDetector';
 import { getSearchSettings } from './utils/searchSettings';
 import { createStartupStatusState } from './utils/startupState';
+import { collectDiagnosticSnapshot, renderDiagnosticMarkdown } from './utils/diagnostics';
 
 // ── 全局状态 ──
 let sidebarProvider: RememberMeSidebarProvider;
@@ -464,7 +465,8 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
           { label: '$(comment-discussion) 开始对话', description: 'startChat' },
           { label: '$(search) 搜索记忆', description: 'searchMemory' },
           { label: '$(gear) 打开设置', description: 'openSettings' },
-          { label: '$(history) 查看对话历史', description: 'viewConversationHistory' }
+          { label: '$(history) 查看对话历史', description: 'viewConversationHistory' },
+          { label: '$(pulse) 运行诊断', description: 'showDiagnostics' }
         ];
         const selected = await vscode.window.showQuickPick(items, {
           placeHolder: '选择操作'
@@ -542,6 +544,43 @@ function registerCommands(context: vscode.ExtensionContext, storage: JsonStorage
         void vscode.window.showInformationMessage(
           `Remember Me v${version} - AI 记忆管家`
         );
+      })
+    )
+  );
+
+  // 12a. 生成不包含密钥和记忆正文的本地诊断报告。
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'rememberMe.showDiagnostics',
+      runWithErrorHandler(async () => {
+        const config = vscode.workspace.getConfiguration('rememberMe');
+        const provider = config.get<ProviderType>('aiProvider', 'deepseek');
+        const isLocalProvider = provider === 'ollama' || provider === 'lmstudio';
+        const secret = isLocalProvider
+          ? undefined
+          : await context.secrets.get(getApiKeySecretKey(provider));
+        const searchSettings = getSearchSettings().read();
+        const engine = await withProgress('正在收集 Remember Me 诊断信息…', () =>
+          new EngineClient().healthCheck()
+        );
+        const snapshot = collectDiagnosticSnapshot(storage, {
+          extensionVersion: String(context.extension.packageJSON.version || 'unknown'),
+          vscodeVersion: vscode.version,
+          provider,
+          modelConfigured: Boolean(config.get<string>('modelName', '').trim()),
+          customBaseUrlConfigured: Boolean(config.get<string>('apiBaseUrl', '').trim()),
+          apiKeyStatus: isLocalProvider ? 'not-required' : secret ? 'configured' : 'missing',
+          searchMode: searchSettings.mode,
+          semanticAvailable: searchSettings.semanticAvailable === true,
+          engineHealthy: engine.healthy,
+          engineSemanticReady: engine.semanticReady,
+          engineModel: engine.modelLoaded,
+        });
+        const document = await vscode.workspace.openTextDocument({
+          content: renderDiagnosticMarkdown(snapshot),
+          language: 'markdown',
+        });
+        await vscode.window.showTextDocument(document, { preview: true });
       })
     )
   );
