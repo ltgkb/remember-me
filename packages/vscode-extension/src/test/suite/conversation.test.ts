@@ -87,6 +87,32 @@ describe('ConversationManager', () => {
       assert.strictEqual(read!.id, created!.id);
     });
 
+    it('readByFilename 不应通过父目录读取其他记忆文件', () => {
+      const otherData = {
+        id: 'not-a-conversation',
+        title: '不应读取',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messages: [],
+        keyDecisions: [],
+        insights: [],
+        tags: [],
+      };
+      storage.write(otherData, 'profile.json');
+
+      assert.strictEqual(manager.readByFilename('teamflow', '../../../profile'), null);
+      assert.strictEqual(manager.readByFilename('teamflow', '..\\..\\..\\profile'), null);
+    });
+
+    it('无效项目名应返回安全默认值', () => {
+      for (const invalidName of ['', '.', '../']) {
+        assert.strictEqual(manager.create(invalidName, '标题'), null);
+        assert.strictEqual(manager.read(invalidName, 'id'), null);
+        assert.deepStrictEqual(manager.list(invalidName), []);
+        assert.strictEqual(manager.delete(invalidName, 'id'), false);
+      }
+    });
+
     it('update 应更新对话内容', () => {
       const created = manager.create('teamflow', '原标题');
       const updated = manager.update('teamflow', created!.id, {

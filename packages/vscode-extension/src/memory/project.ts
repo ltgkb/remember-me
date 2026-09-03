@@ -9,6 +9,12 @@ import { JsonStorage, getStorage } from './storage';
 
 const CONTEXT_FILENAME = 'context.json';
 const CONVERSATIONS_DIR = 'conversations';
+const CURRENT_PROJECT_FILENAME = 'current-project.json';
+
+interface CurrentProjectState {
+  name: string;
+  updatedAt: string;
+}
 
 export class ProjectManager {
   private storage: JsonStorage;
@@ -16,6 +22,7 @@ export class ProjectManager {
 
   constructor(storage?: JsonStorage) {
     this.storage = storage || getStorage();
+    this.restoreCurrentProject();
   }
 
   // ==================== 项目 CRUD ====================
@@ -67,13 +74,24 @@ export class ProjectManager {
    */
   read(name: string): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    if (!safeName) {
+      return null;
+    }
+    try {
+      return this.storage.read<ProjectContext>('projects', safeName, CONTEXT_FILENAME);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法读取项目："${name}"`, error);
+      return null;
+    }
   }
 
   /**
    * 更新项目上下文（局部更新）
    */
-  update(name: string, updates: Partial<Omit<ProjectContext, 'id' | 'createdAt'>>): ProjectContext | null {
+  update(
+    name: string,
+    updates: Partial<Omit<ProjectContext, 'id' | 'name' | 'createdAt'>>
+  ): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
     const existing = this.read(name);
     if (!existing) {
@@ -88,6 +106,7 @@ export class ProjectManager {
       ...existing,
       ...updates,
       id: existing.id,
+      name: existing.name,
       createdAt: existing.createdAt,
       updatedAt: new Date().toISOString(),
     };
@@ -116,7 +135,7 @@ export class ProjectManager {
     }
 
     if (this.currentProjectName === name) {
-      this.currentProjectName = null;
+      this.clearCurrent();
     }
 
     return true;
@@ -127,7 +146,15 @@ export class ProjectManager {
    */
   exists(name: string): boolean {
     const safeName = this.sanitizeDirName(name);
-    return this.storage.exists('projects', safeName, CONTEXT_FILENAME);
+    if (!safeName) {
+      return false;
+    }
+    try {
+      return this.storage.exists('projects', safeName, CONTEXT_FILENAME);
+    } catch (error) {
+      getLogger().warn(`[RememberMe] 无法检查项目："${name}"`, error);
+      return false;
+    }
   }
 
   /**
@@ -138,7 +165,7 @@ export class ProjectManager {
     const projects: Array<{ name: string; context: ProjectContext }> = [];
 
     for (const name of projectNames) {
-      const context = this.storage.read<ProjectContext>('projects', name, CONTEXT_FILENAME);
+      const context = this.read(name);
       if (context) {
         projects.push({ name: context.name, context });
       }
@@ -163,6 +190,14 @@ export class ProjectManager {
   setCurrent(name: string): boolean {
     if (!this.exists(name)) {
       getLogger().warn(`[RememberMe] 设置当前项目失败："${name}" 不存在`);
+      return false;
+    }
+    const state: CurrentProjectState = {
+      name,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!this.storage.write(state, CURRENT_PROJECT_FILENAME)) {
+      getLogger().error(`[RememberMe] 无法持久化当前项目："${name}"`);
       return false;
     }
     this.currentProjectName = name;
@@ -191,6 +226,7 @@ export class ProjectManager {
    */
   clearCurrent(): void {
     this.currentProjectName = null;
+    this.storage.delete(CURRENT_PROJECT_FILENAME);
   }
 
   // ==================== 决策管理 ====================
@@ -366,6 +402,24 @@ export class ProjectManager {
   }
 
   // ==================== 工具方法 ====================
+
+  private restoreCurrentProject(): void {
+    const state = this.storage.read<CurrentProjectState>(CURRENT_PROJECT_FILENAME);
+    if (state && typeof state.name === 'string' && state.name.trim()) {
+      try {
+        if (this.exists(state.name)) {
+          this.currentProjectName = state.name;
+          return;
+        }
+      } catch (error) {
+        getLogger().warn('[RememberMe] 当前项目状态无效，将自动清理', error);
+      }
+    }
+
+    if (this.storage.exists(CURRENT_PROJECT_FILENAME)) {
+      this.storage.delete(CURRENT_PROJECT_FILENAME);
+    }
+  }
 
   private sanitizeDirName(name: string): string {
     // 将项目名称转为安全的目录名：小写，替换特殊字符
