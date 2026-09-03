@@ -77,6 +77,16 @@ describe('ProjectManager', () => {
       assert.strictEqual(updated!.coreFeatures, 'B');
     });
 
+    it('update 不应允许项目名脱离存储目录', () => {
+      manager.create('TeamFlow', 'A', 'B');
+
+      const updated = manager.update('TeamFlow', { name: 'Renamed' } as never);
+
+      assert.strictEqual(updated!.name, 'TeamFlow');
+      assert.strictEqual(manager.read('TeamFlow')!.name, 'TeamFlow');
+      assert.strictEqual(manager.read('Renamed'), null);
+    });
+
     it('delete 应删除项目', () => {
       manager.create('TeamFlow', 'A', 'B');
       assert.strictEqual(manager.exists('TeamFlow'), true);
