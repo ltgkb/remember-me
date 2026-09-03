@@ -15,7 +15,6 @@ Remember Me — 语义搜索快速原型验证脚本
 from __future__ import annotations
 
 import json
-import os
 import random
 import sys
 import time

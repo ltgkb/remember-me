@@ -68,7 +68,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // 注册侧边栏
   sidebarProvider = new RememberMeSidebarProvider(storage);
-  vscode.window.registerTreeDataProvider('rememberMeSidebar', sidebarProvider);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('rememberMeSidebar', sidebarProvider)
+  );
 
   // 注册状态栏
   statusBarManager = new StatusBarManager(context);

@@ -213,7 +213,8 @@
     "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node18 --external:vscode --sourcemap --minify-syntax --minify-whitespace --outfile=dist-extension/extension.js",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "tsc -p ./ && node out/test/runner.js",
+    "clean:test": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\"",
+    "test": "npm run clean:test && tsc -p ./ && node out/test/runner.js",
     "package": "vsce package --out dist/remember-me.vsix"
   },
   "devDependencies": {
