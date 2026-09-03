@@ -7,6 +7,7 @@ import type { Conversation, ChatMessage, Decision, Insight } from '../types';
 import { getInfoExtractor } from './extractor';
 import { getLogger } from '../utils/logger';
 import { JsonStorage, getStorage } from './storage';
+import { isValidConversation } from './conversationGuard';
 
 const CONVERSATIONS_DIR = 'conversations';
 
@@ -115,7 +116,17 @@ export class ConversationManager {
       return null;
     }
     try {
-      return this.storage.read<Conversation>('projects', safeName, CONVERSATIONS_DIR, filename);
+      const conversation = this.storage.read<unknown>(
+        'projects',
+        safeName,
+        CONVERSATIONS_DIR,
+        filename
+      );
+      if (conversation !== null && !isValidConversation(conversation)) {
+        getLogger().warn(`[RememberMe] 忽略结构无效的对话文件："${filename}"`);
+        return null;
+      }
+      return conversation;
     } catch (error) {
       getLogger().warn(`[RememberMe] 无法读取对话文件："${filename}"`, error);
       return null;
