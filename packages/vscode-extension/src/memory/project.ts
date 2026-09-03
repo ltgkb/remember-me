@@ -68,7 +68,10 @@ export class ProjectManager {
   /**
    * 更新项目上下文（局部更新）
    */
-  update(name: string, updates: Partial<Omit<ProjectContext, 'id' | 'createdAt'>>): ProjectContext | null {
+  update(
+    name: string,
+    updates: Partial<Omit<ProjectContext, 'id' | 'name' | 'createdAt'>>
+  ): ProjectContext | null {
     const safeName = this.sanitizeDirName(name);
     const existing = this.read(name);
     if (!existing) {
@@ -83,6 +86,7 @@ export class ProjectManager {
       ...existing,
       ...updates,
       id: existing.id,
+      name: existing.name,
       createdAt: existing.createdAt,
       updatedAt: new Date().toISOString(),
     };
