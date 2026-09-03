@@ -6,7 +6,8 @@
 
 import * as vscode from 'vscode';
 import type { JsonStorage } from '../../memory/storage';
-import type { Profile, IdentityInfo, StyleInfo, ProjectContext } from '../../types';
+import { ProjectManager } from '../../memory/project';
+import type { Profile, IdentityInfo, StyleInfo } from '../../types';
 
 export class SettingsPanelWebview {
   public static currentPanel: SettingsPanelWebview | undefined;
@@ -188,32 +189,33 @@ export class SettingsPanelWebview {
       return;
     }
 
-    const now = new Date().toISOString();
-
-    const project: ProjectContext = {
-      id: `proj-${Date.now()}`,
+    const projectManager = new ProjectManager(this.storage);
+    const existedBefore = projectManager.list().some((item) => item.context.name === name);
+    const competitors = String(data.competitors || '')
+      .split(/[,，]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const project = projectManager.create(
       name,
-      createdAt: now,
-      updatedAt: now,
-      targetUsers: String(data.targetUsers || ''),
-      coreFeatures: String(data.coreFeatures || ''),
-      decisions: [],
-      terminology: [],
-      competitors: String(data.competitors || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
-    };
+      String(data.targetUsers || ''),
+      String(data.coreFeatures || ''),
+      competitors
+    );
 
-    const success = this.storage.write(project, 'projects', name, 'context.json');
-
-    if (success) {
+    if (project && !existedBefore && project.name === name) {
       await this.panel.webview.postMessage({ command: 'saveSuccess', type: 'project' });
       void vscode.window.showInformationMessage(`✅ 项目 "${name}" 已创建`);
       this.onRefresh?.();
+    } else if (project) {
+      await this.panel.webview.postMessage({ command: 'saveError', type: 'project' });
+      void vscode.window.showWarningMessage(
+        project.name === name
+          ? `项目 "${name}" 已存在，未覆盖原有记忆`
+          : `项目名称与已有项目 "${project.name}" 使用相同存储路径，请更换名称`
+      );
     } else {
       await this.panel.webview.postMessage({ command: 'saveError', type: 'project' });
-      void vscode.window.showErrorMessage('❌ 项目创建失败');
+      void vscode.window.showErrorMessage('❌ 项目名称无效或创建失败');
     }
   }
 
